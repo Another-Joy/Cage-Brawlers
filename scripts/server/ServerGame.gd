@@ -303,7 +303,6 @@ func _phase_name(phase: CombatManager.ActionPhase) -> String:
 
 func _on_match_ended(winner_player_id: String, _results: Dictionary) -> void:
 	_match_running = false
-	var winner_name: String = "player_a" if winner_player_id == "player_a" else "Red Team"
 	emit_signal("event_logged", "=== MATCH OVER — Winner: %s ===" % winner_player_id)
 	_broadcast_state()
 

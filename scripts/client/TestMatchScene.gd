@@ -440,8 +440,8 @@ func _draw() -> void:
 			for cd in chars:
 				var cp: Dictionary = cd["pos"]
 				if cp["x"] == t["x"] and cp["y"] == t["y"]:
-					var ap_id: Dictionary = _find_char_dict(active_id)
-					var active_player: String = ap_id.get("player_id", "")
+					var active_char_dict: Dictionary = _find_char_dict(active_id)
+					var active_player: String = active_char_dict.get("player_id", "")
 					if cd["player_id"] != active_player:
 						draw_rect(rect, C_SEL_ATTACK, true)
 
