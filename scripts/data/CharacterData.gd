@@ -84,6 +84,9 @@ var is_crouched: bool = false
 var segment_hp: Array[float] = []
 ## Which segments have been permanently disabled (KNOCKED_DOWN segments).
 var segment_disabled: Array[bool] = []
+## The original class-specific percentage split used at initialisation.
+## Stored so that full_heal() and get_current_max_hp() can restore correctly.
+var _segment_percentages: Array[float] = []
 
 # ---------------------------------------------------------------------------
 # Constants (override per class via ClassDefinitions utility)
@@ -171,6 +174,7 @@ func get_armor_value() -> int:
 ## segment_percentages must be a 3-element array summing to 1.0.
 func initialise_health_segments(segment_percentages: Array[float]) -> void:
 	assert(segment_percentages.size() == 3, "Exactly 3 segment percentages required.")
+	_segment_percentages = segment_percentages.duplicate()
 	var max_hp: float = get_max_hp()
 	segment_hp.clear()
 	segment_disabled.clear()
@@ -188,12 +192,13 @@ func get_current_hp() -> float:
 
 ## Returns the maximum HP across all active (non-disabled) segments.
 func get_current_max_hp() -> float:
+	if _segment_percentages.is_empty():
+		return get_max_hp()
 	var max_hp: float = get_max_hp()
 	var total: float = 0.0
-	for i in segment_hp.size():
-		if not segment_disabled[i]:
-			# Recover the original max of this segment from the proportional data stored during init
-			total += segment_hp[i]
+	for i in _segment_percentages.size():
+		if i < segment_disabled.size() and not segment_disabled[i]:
+			total += max_hp * _segment_percentages[i]
 	return total
 
 ## Applies damage using spillover resolution across segments (leftmost first active).
@@ -251,15 +256,15 @@ func _trigger_knockdown() -> bool:
 	return true
 
 ## Fully restores all health segments and sets state to LIVING.
+## Uses the stored class-specific percentages to restore correct proportional HP.
 func full_heal() -> void:
 	var max_hp: float = get_max_hp()
-	# Recalculate segment sizes using current segments (they retain their proportional size).
-	# Re-enable all segments and restore to full.
 	for i in segment_hp.size():
 		segment_disabled[i] = false
-	# Restore proportional HP (requires re-init via class percentages; here we fill to sum).
-	for i in segment_hp.size():
-		segment_hp[i] = max_hp / segment_hp.size()
+		if i < _segment_percentages.size():
+			segment_hp[i] = max_hp * _segment_percentages[i]
+		else:
+			segment_hp[i] = max_hp / segment_hp.size()
 	state_flag = StateFlag.LIVING
 
 # ---------------------------------------------------------------------------

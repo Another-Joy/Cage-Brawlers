@@ -95,13 +95,13 @@ func disconnect_peer() -> void:
 func broadcast_to_clients(target_node: Node, method: String, args: Array = []) -> void:
 	if not is_server:
 		return
-	target_node.rpc(method, args)
+	target_node.rpc.callv([method] + args)
 
 ## Sends an RPC to a specific client peer.
 func send_to_peer(peer_id: int, target_node: Node, method: String, args: Array = []) -> void:
 	if not is_server:
 		return
-	target_node.rpc_id(peer_id, method, args)
+	target_node.rpc_id.callv([peer_id, method] + args)
 
 # ---------------------------------------------------------------------------
 # Internal Callbacks

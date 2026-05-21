@@ -31,8 +31,9 @@ enum DamageType {
 ## Valid values: "bullets", "bolts", "arrows", ""
 @export var ammo_type: String = ""
 
-## Whether this weapon requires line-of-sight checks when magical (Direct keyword effect).
-## This is derived from keywords at runtime; kept here for convenience serialization.
+## Set to true when this weapon consumes ammo on each attack.
+## This should be consistent with the ammo_type field: if ammo_type is non-empty,
+## requires_ammo should also be true. Configured manually in the item resource.
 @export var requires_ammo: bool = false
 
 # ---------------------------------------------------------------------------
