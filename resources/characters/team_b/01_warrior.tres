@@ -1,0 +1,23 @@
+[gd_resource type="CharacterData" load_steps=3 format=3]
+
+[ext_resource type="WeaponData" path="res://resources/weapons/sword.tres" id="1"]
+[ext_resource type="ArmorData" path="res://resources/armor/leather_armor.tres" id="2"]
+
+[resource]
+character_id = "char_b_warrior"
+character_name = "B-Warrior"
+level = 1
+experience = 0
+character_class = 0
+state_flag = 0
+strength = 14
+dexterity = 10
+constitution = 12
+wisdom = 8
+intelligence = 8
+main_hand_slot = ExtResource("1")
+armor_slot = ExtResource("2")
+bullets_count = 0
+bolts_count = 0
+arrows_count = 0
+potions_count = 0

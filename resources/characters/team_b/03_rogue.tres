@@ -1,0 +1,24 @@
+[gd_resource type="CharacterData" load_steps=3 format=3]
+
+[ext_resource type="WeaponData" path="res://resources/weapons/dagger.tres" id="1"]
+[ext_resource type="ArmorData" path="res://resources/armor/cloth_armor.tres" id="2"]
+
+[resource]
+character_id = "char_b_rogue"
+character_name = "B-Rogue"
+level = 1
+experience = 0
+character_class = 3
+state_flag = 0
+strength = 10
+dexterity = 14
+constitution = 10
+wisdom = 8
+intelligence = 10
+main_hand_slot = ExtResource("1")
+off_hand_slot = ExtResource("1")
+armor_slot = ExtResource("2")
+bullets_count = 0
+bolts_count = 0
+arrows_count = 0
+potions_count = 0

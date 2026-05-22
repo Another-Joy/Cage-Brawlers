@@ -1,0 +1,15 @@
+[gd_resource type="WeaponData" format=3]
+
+[resource]
+item_id = "dagger"
+item_name = "Dagger"
+description = "A light blade suited for off-hand use or thrown attacks."
+equipment_type = 0
+weight = 0.5
+keywords = ["Light"]
+damage_type = 0
+damage_dice_count = 1
+damage_dice_sides = 4
+attack_range = 1
+ammo_type = ""
+requires_ammo = false

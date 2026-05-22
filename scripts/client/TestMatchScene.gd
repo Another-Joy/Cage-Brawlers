@@ -72,6 +72,7 @@ var _lbl_round    : Label
 var _lbl_active   : Label
 var _lbl_phase    : Label
 var _hbox_hp      : HBoxContainer
+var _vbox_equip   : VBoxContainer
 var _vbox_order   : VBoxContainer
 var _hbox_btns    : HBoxContainer
 var _grid_facing  : GridContainer
@@ -130,6 +131,15 @@ func _build_ui() -> void:
 	_hbox_hp = HBoxContainer.new()
 	_hbox_hp.add_theme_constant_override("separation", 3)
 	vbox.add_child(_hbox_hp)
+
+	# Equipment (active character) ─────────────────────────────────────────
+	var lbl_equip_hdr := Label.new()
+	lbl_equip_hdr.text = "Equipment:"
+	vbox.add_child(lbl_equip_hdr)
+
+	_vbox_equip = VBoxContainer.new()
+	_vbox_equip.add_theme_constant_override("separation", 1)
+	vbox.add_child(_vbox_equip)
 
 	vbox.add_child(HSeparator.new())
 
@@ -246,6 +256,7 @@ func _update_ui() -> void:
 	_lbl_phase.text = "Phase: %s" % phase
 
 	_rebuild_hp_bars(active_char)
+	_rebuild_equipment_panel(active_char)
 	_rebuild_turn_order()
 	_rebuild_buttons(phase)
 
@@ -266,6 +277,57 @@ func _rebuild_hp_bars(char_dict: Dictionary) -> void:
 			bar.value    = 0.0
 			bar.modulate = Color(0.35, 0.35, 0.35)
 		_hbox_hp.add_child(bar)
+
+func _rebuild_equipment_panel(char_dict: Dictionary) -> void:
+	for c in _vbox_equip.get_children():
+		c.queue_free()
+	if char_dict.is_empty():
+		return
+
+	var equip: Dictionary = char_dict.get("equipment", {})
+	if equip.is_empty():
+		_equip_label("  (no equipment)")
+		return
+
+	if equip.has("main_hand"):
+		var mh: Dictionary = equip["main_hand"]
+		var kwds: Array = mh.get("keywords", [])
+		var kw_str: String = (" [%s]" % ", ".join(kwds)) if kwds.size() > 0 else ""
+		_equip_label("  Main: %s  %s %s  r%d%s" % [
+			mh.get("name", "?"),
+			mh.get("damage", "?"),
+			mh.get("damage_type", "?"),
+			int(mh.get("range", 1)),
+			kw_str,
+		])
+
+	if equip.has("off_hand"):
+		var oh: Dictionary = equip["off_hand"]
+		var kind: String = oh.get("kind", "item")
+		match kind:
+			"weapon":
+				var kwds2: Array = oh.get("keywords", [])
+				var kw2: String = (" [%s]" % ", ".join(kwds2)) if kwds2.size() > 0 else ""
+				_equip_label("  Off:  %s  %s%s" % [oh.get("name", "?"), oh.get("damage", "?"), kw2])
+			"shield":
+				_equip_label("  Off:  %s  Ev+%d" % [oh.get("name", "?"), int(oh.get("evasion_bonus", 0))])
+			_:
+				_equip_label("  Off:  %s" % oh.get("name", "?"))
+
+	if equip.has("armor"):
+		var ar: Dictionary = equip["armor"]
+		_equip_label("  Armor: %s  AV:%d  Ev:%+d  Mv:%+d" % [
+			ar.get("name", "?"),
+			int(ar.get("av", 0)),
+			int(ar.get("evasion", 0)),
+			int(ar.get("movement", 0)),
+		])
+
+func _equip_label(text: String) -> void:
+	var lbl := Label.new()
+	lbl.text = text
+	lbl.add_theme_font_size_override("font_size", 11)
+	_vbox_equip.add_child(lbl)
 
 func _rebuild_turn_order() -> void:
 	for c in _vbox_order.get_children():

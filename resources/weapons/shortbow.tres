@@ -1,0 +1,14 @@
+[gd_resource type="WeaponData" format=3]
+
+[resource]
+item_id = "shortbow"
+item_name = "Shortbow"
+description = "A light bow with moderate range. Requires arrows."
+equipment_type = 0
+weight = 1.0
+damage_type = 1
+damage_dice_count = 1
+damage_dice_sides = 6
+attack_range = 6
+ammo_type = "arrows"
+requires_ammo = true

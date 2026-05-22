@@ -1,0 +1,14 @@
+[gd_resource type="WeaponData" format=3]
+
+[resource]
+item_id = "sword"
+item_name = "Sword"
+description = "A reliable one-handed blade."
+equipment_type = 0
+weight = 1.5
+damage_type = 0
+damage_dice_count = 1
+damage_dice_sides = 6
+attack_range = 1
+ammo_type = ""
+requires_ammo = false

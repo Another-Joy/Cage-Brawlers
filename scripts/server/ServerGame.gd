@@ -69,8 +69,9 @@ func start_test_match() -> void:
 	var spawns_b: Array[Vector3i] = [
 		Vector3i(7, 1, 0), Vector3i(7, 4, 0), Vector3i(7, 6, 0),
 	]
-	for i in 3:
+	for i in min(teams["player_a"].size(), spawns_a.size()):
 		teams["player_a"][i].grid_position = spawns_a[i]
+	for i in min(teams["player_b"].size(), spawns_b.size()):
 		teams["player_b"][i].grid_position = spawns_b[i]
 
 	# Build minimal PlayerProfile objects.
@@ -243,6 +244,43 @@ func _serialize_char(char_data: CharacterData, player_id: String) -> Dictionary:
 		seg_max.append(max_hp * (pcts[i] if i < pcts.size() else 0.33))
 		seg_disabled.append(char_data.segment_disabled[i])
 
+	# ── Equipment snapshot ─────────────────────────────────────────────────
+	var equip: Dictionary = {}
+	if char_data.main_hand_slot:
+		var w: WeaponData = char_data.main_hand_slot
+		var dtype_names: Array[String] = ["Physical", "Ranged", "Magical"]
+		var dtype_idx: int = int(w.damage_type)
+		equip["main_hand"] = {
+			"name":        w.item_name,
+			"damage":      "%dd%d" % [w.damage_dice_count, w.damage_dice_sides],
+			"range":       w.attack_range,
+			"damage_type": dtype_names[dtype_idx] if dtype_idx < dtype_names.size() else "?",
+			"keywords":    w.keywords.duplicate(),
+		}
+	if char_data.off_hand_slot:
+		var e: EquipmentData = char_data.off_hand_slot
+		var ohd: Dictionary = {"name": e.item_name}
+		if e is WeaponData:
+			var woff: WeaponData = e as WeaponData
+			ohd["kind"]     = "weapon"
+			ohd["damage"]   = "%dd%d" % [woff.damage_dice_count, woff.damage_dice_sides]
+			ohd["range"]    = woff.attack_range
+			ohd["keywords"] = woff.keywords.duplicate()
+		elif e is ShieldData:
+			ohd["kind"]          = "shield"
+			ohd["evasion_bonus"] = (e as ShieldData).evasion_bonus
+		else:
+			ohd["kind"] = "item"
+		equip["off_hand"] = ohd
+	if char_data.armor_slot:
+		var a: ArmorData = char_data.armor_slot
+		equip["armor"] = {
+			"name":     a.item_name,
+			"av":       a.armor_value,
+			"evasion":  a.evasion_modifier,
+			"movement": a.movement_modifier,
+		}
+
 	return {
 		"id":           char_data.character_id,
 		"name":         char_data.character_name,
@@ -255,6 +293,7 @@ func _serialize_char(char_data: CharacterData, player_id: String) -> Dictionary:
 		"hp_segments":  seg_hp,
 		"hp_seg_max":   seg_max,
 		"hp_disabled":  seg_disabled,
+		"equipment":    equip,
 	}
 
 func _serialize_map() -> Dictionary:
@@ -331,131 +370,43 @@ func _build_test_map() -> void:
 
 func _build_test_teams() -> Dictionary:
 	return {
-		"player_a": _build_team("a"),
-		"player_b": _build_team("b"),
+		"player_a": _load_roster("res://resources/characters/team_a"),
+		"player_b": _load_roster("res://resources/characters/team_b"),
 	}
 
-func _build_team(prefix: String) -> Array[CharacterData]:
+## Loads all CharacterData `.tres` files from a folder, sorted by filename.
+## Each character is freshly instantiated (cache ignored) so combat state is clean.
+func _load_roster(folder_path: String) -> Array[CharacterData]:
 	var team: Array[CharacterData] = []
+	var dir := DirAccess.open(folder_path)
+	if dir == null:
+		push_error("[ServerGame] Cannot open roster folder: %s — falling back to empty team." % folder_path)
+		return team
+	var files: Array[String] = []
+	dir.list_dir_begin()
+	var file_name := dir.get_next()
+	while file_name != "":
+		if not dir.current_is_dir() and file_name.ends_with(".tres"):
+			files.append(file_name)
+		file_name = dir.get_next()
+	dir.list_dir_end()
+	files.sort()  # ensures consistent ordering (01_, 02_, 03_ prefixes)
 
-	# ── Warrior ────────────────────────────────────────────────────────────
-	var warrior: CharacterData = CharacterData.new()
-	warrior.character_id    = "char_%s_warrior" % prefix
-	warrior.character_name  = "%s-Warrior" % prefix.to_upper()
-	warrior.character_class = CharacterData.CharacterClass.WARRIOR
-	warrior.strength        = 14
-	warrior.dexterity       = 10
-	warrior.constitution    = 12
-	warrior.wisdom          = 8
-	warrior.intelligence    = 8
-	warrior.main_hand_slot  = _make_sword()
-	warrior.armor_slot      = _make_medium_armor()
-	ClassDefinitions.initialise_character_health(warrior)
-	team.append(warrior)
-
-	# ── Ranger ─────────────────────────────────────────────────────────────
-	var ranger: CharacterData = CharacterData.new()
-	ranger.character_id    = "char_%s_ranger" % prefix
-	ranger.character_name  = "%s-Ranger" % prefix.to_upper()
-	ranger.character_class = CharacterData.CharacterClass.RANGER
-	ranger.strength        = 8
-	ranger.dexterity       = 14
-	ranger.constitution    = 10
-	ranger.wisdom          = 12
-	ranger.intelligence    = 12
-	ranger.main_hand_slot  = _make_shortbow()
-	ranger.arrows_count    = 20
-	ranger.armor_slot      = _make_light_armor()
-	ClassDefinitions.initialise_character_health(ranger)
-	team.append(ranger)
-
-	# ── Rogue (dual-wield daggers) ──────────────────────────────────────────
-	var rogue: CharacterData = CharacterData.new()
-	rogue.character_id    = "char_%s_rogue" % prefix
-	rogue.character_name  = "%s-Rogue" % prefix.to_upper()
-	rogue.character_class = CharacterData.CharacterClass.ROGUE
-	rogue.strength        = 10
-	rogue.dexterity       = 14
-	rogue.constitution    = 10
-	rogue.wisdom          = 8
-	rogue.intelligence    = 10
-	rogue.main_hand_slot  = _make_dagger()
-	rogue.off_hand_slot   = _make_dagger()
-	rogue.armor_slot      = _make_light_armor()
-	ClassDefinitions.initialise_character_health(rogue)
-	team.append(rogue)
+	for fname in files:
+		var full_path: String = folder_path + "/" + fname
+		# CACHE_MODE_IGNORE gives a fresh instance every call so combat state
+		# from a previous match session does not bleed into a new one.
+		var char_data := ResourceLoader.load(
+				full_path, "CharacterData",
+				ResourceLoader.CACHE_MODE_IGNORE) as CharacterData
+		if char_data == null:
+			push_error("[ServerGame] Failed to load character resource: %s" % full_path)
+			continue
+		# Reset any leftover runtime combat state.
+		char_data.grid_position    = Vector3i.ZERO
+		char_data.facing_direction = 0
+		char_data.is_crouched      = false
+		ClassDefinitions.initialise_character_health(char_data)
+		team.append(char_data)
 
 	return team
-
-# -- Weapon helpers ----------------------------------------------------------
-
-func _make_sword() -> WeaponData:
-	var w := WeaponData.new()
-	w.item_id           = "sword"
-	w.item_name         = "Sword"
-	w.equipment_type    = EquipmentData.EquipmentType.WEAPON
-	w.damage_type       = WeaponData.DamageType.PHYSICAL
-	w.damage_dice_count = 1
-	w.damage_dice_sides = 6
-	w.attack_range      = 1
-	w.weight            = 1.5
-	return w
-
-func _make_shortbow() -> WeaponData:
-	var w := WeaponData.new()
-	w.item_id           = "shortbow"
-	w.item_name         = "Shortbow"
-	w.equipment_type    = EquipmentData.EquipmentType.WEAPON
-	w.damage_type       = WeaponData.DamageType.RANGED
-	w.damage_dice_count = 1
-	w.damage_dice_sides = 6
-	w.attack_range      = 6
-	w.ammo_type         = "arrows"
-	w.requires_ammo     = true
-	w.weight            = 1.0
-	return w
-
-func _make_dagger() -> WeaponData:
-	var w := WeaponData.new()
-	w.item_id           = "dagger"
-	w.item_name         = "Dagger"
-	w.equipment_type    = EquipmentData.EquipmentType.WEAPON
-	w.damage_type       = WeaponData.DamageType.PHYSICAL
-	w.damage_dice_count = 1
-	w.damage_dice_sides = 4
-	w.attack_range      = 1
-	w.weight            = 0.5
-	w.keywords          = ["Light"]
-	return w
-
-# -- Armor helpers ------------------------------------------------------------
-
-func _make_medium_armor() -> ArmorData:
-	var a := ArmorData.new()
-	a.item_id             = "leather_armor"
-	a.item_name           = "Leather Armor"
-	a.equipment_type      = EquipmentData.EquipmentType.ARMOR
-	a.armor_type          = ArmorData.ArmorType.MEDIUM
-	a.armor_value         = 2
-	a.evasion_modifier    = 0
-	a.movement_modifier   = 0
-	a.ammo_slots_capacity = 4
-	a.allows_arrows       = true
-	a.potion_slots        = 2
-	a.weight              = 5.0
-	return a
-
-func _make_light_armor() -> ArmorData:
-	var a := ArmorData.new()
-	a.item_id             = "cloth_armor"
-	a.item_name           = "Cloth Armor"
-	a.equipment_type      = EquipmentData.EquipmentType.ARMOR
-	a.armor_type          = ArmorData.ArmorType.LIGHT
-	a.armor_value         = 0
-	a.evasion_modifier    = 2
-	a.movement_modifier   = 1
-	a.ammo_slots_capacity = 8
-	a.allows_arrows       = true
-	a.potion_slots        = 4
-	a.weight              = 1.0
-	return a
