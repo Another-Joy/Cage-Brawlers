@@ -454,10 +454,10 @@ func _draw() -> void:
 		_draw_character(cd, active_id)
 
 func _draw_boundary(bd: Dictionary) -> void:
-	var a  := bd["a"]
-	var b  := bd["b"]
-	var dx := b["x"] - a["x"]
-	var dy := b["y"] - a["y"]
+	var a  : Dictionary = bd["a"]
+	var b  : Dictionary = bd["b"]
+	var dx : int = int(b["x"]) - int(a["x"])
+	var dy : int = int(b["y"]) - int(a["y"])
 
 	# Only cardinal boundaries get drawn.
 	if abs(dx) + abs(dy) != 1:
