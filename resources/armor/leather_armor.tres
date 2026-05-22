@@ -1,4 +1,4 @@
-[gd_resource type="ArmorData" script_class="ArmorData" format=3]
+[gd_resource type="Resource" script_class="ArmorData" format=3]
 
 [ext_resource type="Script" uid="uid://deqg5ptr388ad" path="res://scripts/data/ArmorData.gd" id="1"]
 

@@ -1,4 +1,4 @@
-[gd_resource type="WeaponData" script_class="WeaponData" format=3]
+[gd_resource type="Resource" script_class="WeaponData" format=3]
 
 [ext_resource type="Script" uid="uid://bb3tgc10tnlt3" path="res://scripts/data/WeaponData.gd" id="1"]
 
