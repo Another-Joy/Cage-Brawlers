@@ -61,8 +61,7 @@ You can also edit `.tres` files in any plain-text editor (see formats below).
 | `damage_dice_count` | int | Number of dice rolled per attack (e.g. `2` for 2d6). |
 | `damage_dice_sides` | int | Sides per die (e.g. `6` for d6). |
 | `attack_range` | int | Tiles. `1` = melee (adjacent only). |
-| `ammo_type` | String | `"bullets"`, `"bolts"`, `"arrows"`, or `""` (none). |
-| `requires_ammo` | bool | Set `true` if `ammo_type` is non-empty. |
+| `ammo_type` | int | Ammo consumed per attack. `0`=NONE, `1`=BULLETS, `2`=BOLTS, `3`=ARROWS. |
 
 ### Example — a heavy crossbow
 
@@ -80,8 +79,7 @@ damage_type = 1
 damage_dice_count = 2
 damage_dice_sides = 6
 attack_range = 8
-ammo_type = "bolts"
-requires_ammo = true
+ammo_type = 2
 ```
 
 ---

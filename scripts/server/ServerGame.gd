@@ -248,13 +248,11 @@ func _serialize_char(char_data: CharacterData, player_id: String) -> Dictionary:
 	var equip: Dictionary = {}
 	if char_data.main_hand_slot:
 		var w: WeaponData = char_data.main_hand_slot
-		var dtype_names: Array[String] = ["Physical", "Ranged", "Magical"]
-		var dtype_idx: int = int(w.damage_type)
 		equip["main_hand"] = {
 			"name":        w.item_name,
 			"damage":      "%dd%d" % [w.damage_dice_count, w.damage_dice_sides],
 			"range":       w.attack_range,
-			"damage_type": dtype_names[dtype_idx] if dtype_idx < dtype_names.size() else "?",
+			"damage_type": w.get_damage_type_name(),
 			"keywords":    w.keywords.duplicate(),
 		}
 	if char_data.off_hand_slot:

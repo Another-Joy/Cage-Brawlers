@@ -1,14 +1,15 @@
-[gd_resource type="WeaponData" format=3]
+[gd_resource type="WeaponData" script_class="WeaponData" format=3]
+
+[ext_resource type="Script" uid="uid://bb3tgc10tnlt3" path="res://scripts/data/WeaponData.gd" id="1"]
 
 [resource]
+script = ExtResource("1")
 item_id = "sword"
 item_name = "Sword"
 description = "A reliable one-handed blade."
-equipment_type = 0
 weight = 1.5
 damage_type = 0
 damage_dice_count = 1
 damage_dice_sides = 6
 attack_range = 1
-ammo_type = ""
-requires_ammo = false
+ammo_type = 0

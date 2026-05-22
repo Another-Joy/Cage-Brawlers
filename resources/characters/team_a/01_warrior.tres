@@ -1,9 +1,11 @@
-[gd_resource type="CharacterData" load_steps=3 format=3]
+[gd_resource type="CharacterData" script_class="CharacterData" load_steps=4 format=3]
 
-[ext_resource type="WeaponData" path="res://resources/weapons/sword.tres" id="1"]
-[ext_resource type="ArmorData" path="res://resources/armor/leather_armor.tres" id="2"]
+[ext_resource type="Script" uid="uid://lmya1w7ogudy" path="res://scripts/data/CharacterData.gd" id="1"]
+[ext_resource type="WeaponData" path="res://resources/weapons/sword.tres" id="2"]
+[ext_resource type="ArmorData" path="res://resources/armor/leather_armor.tres" id="3"]
 
 [resource]
+script = ExtResource("1")
 character_id = "char_a_warrior"
 character_name = "A-Warrior"
 level = 1
@@ -15,8 +17,8 @@ dexterity = 10
 constitution = 12
 wisdom = 8
 intelligence = 8
-main_hand_slot = ExtResource("1")
-armor_slot = ExtResource("2")
+main_hand_slot = ExtResource("2")
+armor_slot = ExtResource("3")
 bullets_count = 0
 bolts_count = 0
 arrows_count = 0

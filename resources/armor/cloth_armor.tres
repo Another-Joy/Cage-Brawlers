@@ -1,10 +1,12 @@
-[gd_resource type="ArmorData" format=3]
+[gd_resource type="ArmorData" script_class="ArmorData" format=3]
+
+[ext_resource type="Script" uid="uid://deqg5ptr388ad" path="res://scripts/data/ArmorData.gd" id="1"]
 
 [resource]
+script = ExtResource("1")
 item_id = "cloth_armor"
 item_name = "Cloth Armor"
 description = "Light clothing granting evasion and movement bonuses."
-equipment_type = 3
 weight = 1.0
 armor_type = 0
 armor_value = 0

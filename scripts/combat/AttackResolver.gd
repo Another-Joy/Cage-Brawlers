@@ -100,10 +100,10 @@ func _resolve_ranged(
 		result: AttackResult) -> AttackResult:
 
 	# Check ammo availability.
-	if weapon.requires_ammo:
+	if weapon.requires_ammo():
 		var consumed: bool = _consume_ammo(attacker, weapon.ammo_type)
 		if not consumed:
-			result.rejection_reason = "No ammo: %s" % weapon.ammo_type
+			result.rejection_reason = "No ammo: %s" % (WeaponData.AmmoType.keys()[weapon.ammo_type] if weapon.ammo_type < WeaponData.AmmoType.size() else "UNKNOWN")
 			return result
 		result.ammo_consumed = true
 
@@ -224,24 +224,24 @@ func _get_damage_bonus(attacker: CharacterData, weapon: WeaponData) -> int:
 
 ## Attempts to consume one unit of the required ammo type.
 ## Returns true on success, false if no ammo remains.
-func _consume_ammo(attacker: CharacterData, ammo_type: String) -> bool:
+func _consume_ammo(attacker: CharacterData, ammo_type: WeaponData.AmmoType) -> bool:
 	match ammo_type:
-		"bullets":
+		WeaponData.AmmoType.BULLETS:
 			if attacker.bullets_count <= 0:
 				return false
 			attacker.bullets_count -= 1
 			return true
-		"bolts":
+		WeaponData.AmmoType.BOLTS:
 			if attacker.bolts_count <= 0:
 				return false
 			attacker.bolts_count -= 1
 			return true
-		"arrows":
+		WeaponData.AmmoType.ARROWS:
 			if attacker.arrows_count <= 0:
 				return false
 			attacker.arrows_count -= 1
 			return true
-	return true  # No ammo type required.
+	return true  # AmmoType.NONE — no ammo required.
 
 # ---------------------------------------------------------------------------
 # Dual Wield Sequence
@@ -270,12 +270,12 @@ func resolve_dual_wield(
 		return results  # Main hand failed; abort.
 
 	# Attack 2: Off Hand — check ammo before rolling.
-	if off_weapon.requires_ammo:
+	if off_weapon.requires_ammo():
 		var ammo_available: bool = false
 		match off_weapon.ammo_type:
-			"bullets": ammo_available = attacker.bullets_count > 0
-			"bolts":   ammo_available = attacker.bolts_count > 0
-			"arrows":  ammo_available = attacker.arrows_count > 0
+			WeaponData.AmmoType.BULLETS: ammo_available = attacker.bullets_count > 0
+			WeaponData.AmmoType.BOLTS:   ammo_available = attacker.bolts_count > 0
+			WeaponData.AmmoType.ARROWS:  ammo_available = attacker.arrows_count > 0
 			_: ammo_available = true
 		if not ammo_available:
 			var no_ammo_result: AttackResult = AttackResult.new()

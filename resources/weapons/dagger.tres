@@ -1,15 +1,16 @@
-[gd_resource type="WeaponData" format=3]
+[gd_resource type="WeaponData" script_class="WeaponData" format=3]
+
+[ext_resource type="Script" uid="uid://bb3tgc10tnlt3" path="res://scripts/data/WeaponData.gd" id="1"]
 
 [resource]
+script = ExtResource("1")
 item_id = "dagger"
 item_name = "Dagger"
 description = "A light blade suited for off-hand use or thrown attacks."
-equipment_type = 0
 weight = 0.5
 keywords = ["Light"]
 damage_type = 0
 damage_dice_count = 1
 damage_dice_sides = 4
 attack_range = 1
-ammo_type = ""
-requires_ammo = false
+ammo_type = 0

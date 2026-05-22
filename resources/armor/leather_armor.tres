@@ -1,10 +1,12 @@
-[gd_resource type="ArmorData" format=3]
+[gd_resource type="ArmorData" script_class="ArmorData" format=3]
+
+[ext_resource type="Script" uid="uid://deqg5ptr388ad" path="res://scripts/data/ArmorData.gd" id="1"]
 
 [resource]
+script = ExtResource("1")
 item_id = "leather_armor"
 item_name = "Leather Armor"
 description = "Medium armor offering decent protection with 4 ammo slots."
-equipment_type = 3
 weight = 5.0
 armor_type = 1
 armor_value = 2
