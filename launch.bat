@@ -4,7 +4,11 @@
 :: Starts a headless server in one window, waits 2 seconds, then opens a client.
 :: ─────────────────────────────────────────────────────────────────────────────
 
-:: ► Edit this line to point at your Godot 4 executable:
+:: ► Edit this line to point at your Godot 4 executable.
+::   Common locations:
+::     C:\Program Files\Godot\Godot_v4.x_win64.exe
+::     C:\Users\%USERNAME%\AppData\Local\Programs\Godot\Godot_v4.x_win64.exe
+::     C:\tools\godot\Godot_v4.x_win64.exe
 set GODOT=C:\path\to\Godot_v4.x_win64.exe
 
 :: ► Project path (default: same folder as this script):

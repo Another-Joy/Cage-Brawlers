@@ -375,7 +375,9 @@ func _build_test_teams() -> Dictionary:
 	}
 
 ## Loads all CharacterData `.tres` files from a folder, sorted by filename.
-## Each character is freshly instantiated (cache ignored) so combat state is clean.
+## Each character is a shallow duplicate of the cached base resource so that
+## combat state (grid_position, hp arrays, etc.) is clean while the shared
+## sub-resources (weapons, armor) remain cached and are not duplicated.
 func _load_roster(folder_path: String) -> Array[CharacterData]:
 	var team: Array[CharacterData] = []
 	var dir := DirAccess.open(folder_path)
@@ -394,18 +396,14 @@ func _load_roster(folder_path: String) -> Array[CharacterData]:
 
 	for fname in files:
 		var full_path: String = folder_path + "/" + fname
-		# CACHE_MODE_IGNORE gives a fresh instance every call so combat state
-		# from a previous match session does not bleed into a new one.
-		var char_data := ResourceLoader.load(
-				full_path, "CharacterData",
-				ResourceLoader.CACHE_MODE_IGNORE) as CharacterData
-		if char_data == null:
+		# Load the cached base resource, then shallow-duplicate to get a fresh
+		# CharacterData instance with independent non-exported combat-state vars
+		# while weapon/armor sub-resources stay as shared cached references.
+		var base_data := load(full_path) as CharacterData
+		if base_data == null:
 			push_error("[ServerGame] Failed to load character resource: %s" % full_path)
 			continue
-		# Reset any leftover runtime combat state.
-		char_data.grid_position    = Vector3i.ZERO
-		char_data.facing_direction = 0
-		char_data.is_crouched      = false
+		var char_data := base_data.duplicate(false) as CharacterData
 		ClassDefinitions.initialise_character_health(char_data)
 		team.append(char_data)
 
