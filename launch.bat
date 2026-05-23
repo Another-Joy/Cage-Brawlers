@@ -9,7 +9,7 @@
 ::     C:\Program Files\Godot\Godot_v4.x_win64.exe
 ::     C:\Users\%USERNAME%\AppData\Local\Programs\Godot\Godot_v4.x_win64.exe
 ::     C:\tools\godot\Godot_v4.x_win64.exe
-set GODOT=C:\path\to\Godot_v4.x_win64.exe
+set GODOT=C:\Users\tiago\godot.exe
 
 :: ► Project path (default: same folder as this script):
 set PROJECT=%~dp0
