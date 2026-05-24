@@ -140,6 +140,13 @@ func process_move_action(character: CharacterData, destination: Vector3i) -> boo
 	if _pathfinding.get_path_cost(path) > speed:
 		return false
 
+	# Reject if the destination tile is already occupied by a living character.
+	for other in _all_characters:
+		if other == character:
+			continue
+		if other.grid_position == destination and other.state_flag != CharacterData.StateFlag.DEAD:
+			return false
+
 	# Apply movement.
 	character.grid_position = destination
 	# After movement, enter PENDING_ROTATION sub-state.

@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="ArmorData" load_steps=2 format=3 uid="uid://boq7jhf6lht0o"]
+
+[ext_resource type="Script" uid="uid://deqg5ptr388ad" path="res://scripts/data/ArmorData.gd" id="1_a3woo"]
+
+[resource]
+script = ExtResource("1_a3woo")
+armor_type = 0
+evasion_modifier = 15
+movement_modifier = 2
+ammo_slots_capacity = 30
+item_id = "cloth_gabardine"
+item_name = "Simple_Gabardine"
+equipment_type = 3
+weight = 3.0
+metadata/_custom_type_script = "uid://deqg5ptr388ad"

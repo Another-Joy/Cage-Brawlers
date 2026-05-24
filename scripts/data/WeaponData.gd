@@ -8,9 +8,18 @@ extends EquipmentData
 # ---------------------------------------------------------------------------
 
 enum DamageType {
-	PHYSICAL,
-	RANGED,
-	MAGICAL,
+	PHYSICAL,  ## 0
+	RANGED,    ## 1
+	MAGICAL,   ## 2
+}
+
+## Ammo category consumed by this weapon on each attack.
+## Store the integer value in .tres files.
+enum AmmoType {
+	NONE,     ## 0 — No ammo required.
+	BULLETS,  ## 1 — Consumes bullets from the character's belt.
+	BOLTS,    ## 2 — Consumes crossbow bolts from the character's belt.
+	ARROWS,   ## 3 — Consumes arrows (2 capacity units each) from the belt.
 }
 
 # ---------------------------------------------------------------------------
@@ -27,20 +36,15 @@ enum DamageType {
 ## Attack range in grid tiles. 1 = melee adjacent only.
 @export var attack_range: int = 1
 
-## The ammo type this weapon consumes (empty string = no ammo needed).
-## Valid values: "bullets", "bolts", "arrows", ""
-@export var ammo_type: String = ""
-
-## Set to true when this weapon consumes ammo on each attack.
-## This should be consistent with the ammo_type field: if ammo_type is non-empty,
-## requires_ammo should also be true. Configured manually in the item resource.
-@export var requires_ammo: bool = false
+## The ammo type this weapon consumes per attack.
+## NONE means no ammo is needed; any other value requires the matching count > 0.
+@export var ammo_type: AmmoType = AmmoType.NONE
 
 # ---------------------------------------------------------------------------
 # Derived Helpers
 # ---------------------------------------------------------------------------
 
-## Returns true if this weapon can be placed in the off-hand (has the Light keyword).
+## Returns true if this weapon can be placed in the off-hand (has the "Light" keyword).
 func is_light_weapon() -> bool:
 	return has_keyword("Light")
 
@@ -55,3 +59,11 @@ func is_ranged() -> bool:
 ## Returns true if this is a magical weapon (DamageType.MAGICAL).
 func is_magical() -> bool:
 	return damage_type == DamageType.MAGICAL
+
+## Returns true if this weapon requires any ammo to fire.
+func requires_ammo() -> bool:
+	return ammo_type != AmmoType.NONE
+
+## Returns the display name of this weapon's damage type.
+func get_damage_type_name() -> String:
+	return DamageType.keys()[damage_type] if damage_type < DamageType.size() else "UNKNOWN"
