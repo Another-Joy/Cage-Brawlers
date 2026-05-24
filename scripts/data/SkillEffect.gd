@@ -57,6 +57,8 @@ enum ValueType {
 
 ## Used when value_type == DICE. Set count and sides on the sub-resource.
 @export var dice: DiceValue = null
+## Whether the dice roll uses the character's Reliability modifier.
+@export var uses_reliability: bool = false
 
 ## Used when value_type == STAT_MODIFIER: name of the stat to read
 ## (e.g. "strength", "dexterity", "wisdom", "intelligence", "constitution").

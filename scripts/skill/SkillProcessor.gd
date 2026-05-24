@@ -185,7 +185,7 @@ static func _resolve_effect_value(
 		SkillEffect.ValueType.DICE:
 			if effect.dice == null or dice_roller == null:
 				return 0
-			return effect.dice.roll(dice_roller)
+			return effect.dice.roll(dice_roller, effect.uses_reliability)
 		SkillEffect.ValueType.STAT_MODIFIER:
 			if ctx.owner == null or effect.modifier_divisor <= 0:
 				return 0

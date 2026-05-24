@@ -452,7 +452,7 @@ func _execute_ability_action(
 		AbilityAction.ActionType.HEAL:
 			var heal_amount: float = float(action.flat_bonus)
 			if action.bonus_dice != null:
-				heal_amount += float(action.bonus_dice.roll(_dice_roller, action.uses_reliability))
+				heal_amount += float(action.bonus_dice.roll(_dice_roller, action.uses_reliability, 0.0))
 			var heal_target: CharacterData = _resolve_action_target(character, action, target)
 			if heal_target != null:
 				heal_target.apply_damage(-heal_amount)
