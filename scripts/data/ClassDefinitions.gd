@@ -1,6 +1,8 @@
 ## ClassDefinitions.gd
 ## Static utility providing class-specific data: health segment percentages
 ## and weapon category lists used for skill tree generation.
+## When a character has a class_data resource set, those values take precedence
+## over the hardcoded fallbacks defined here.
 class_name ClassDefinitions
 extends RefCounted
 
@@ -51,8 +53,22 @@ static func get_weapon_categories(char_class: CharacterData.CharacterClass) -> A
 
 # ---------------------------------------------------------------------------
 # Convenience: Initialise a Character's health segments from their class.
+# Prefers class_data resource when available; falls back to enum-based lookup.
 # ---------------------------------------------------------------------------
 
 static func initialise_character_health(char_data: CharacterData) -> void:
-	var percentages: Array[float] = get_segment_percentages(char_data.character_class)
+	var percentages: Array[float]
+	if char_data.class_data != null and not char_data.class_data.health_segment_percentages.is_empty():
+		percentages = char_data.class_data.health_segment_percentages
+	else:
+		percentages = get_segment_percentages(char_data.character_class)
 	char_data.initialise_health_segments(percentages)
+
+# ---------------------------------------------------------------------------
+# Convenience: Get weapon categories, preferring class_data when available.
+# ---------------------------------------------------------------------------
+
+static func get_weapon_categories_for_character(char_data: CharacterData) -> Array[String]:
+	if char_data.class_data != null and not char_data.class_data.weapon_categories.is_empty():
+		return char_data.class_data.weapon_categories
+	return get_weapon_categories(char_data.character_class)

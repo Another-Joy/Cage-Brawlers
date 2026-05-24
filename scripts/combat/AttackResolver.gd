@@ -44,11 +44,12 @@ class AttackResult:
 
 ## Validates and resolves a single attack from attacker targeting target using weapon.
 ## Returns an AttackResult describing validity, hit/miss, and damage.
+## skill_or_ability may be a SkillData or AbilityData; only its keywords are read here.
 func resolve_attack(
 		attacker: CharacterData,
 		target: CharacterData,
 		weapon: WeaponData,
-		skill: SkillData = null) -> AttackResult:
+		skill_or_ability: SkillTreeEntry = null) -> AttackResult:
 
 	var result: AttackResult = AttackResult.new()
 
@@ -58,7 +59,7 @@ func resolve_attack(
 		WeaponData.DamageType.RANGED:
 			return _resolve_ranged(attacker, target, weapon, result)
 		WeaponData.DamageType.MAGICAL:
-			return _resolve_magical(attacker, target, weapon, skill, result)
+			return _resolve_magical(attacker, target, weapon, skill_or_ability, result)
 
 	result.rejection_reason = "Unknown damage type."
 	return result
@@ -134,7 +135,7 @@ func _resolve_magical(
 		attacker: CharacterData,
 		target: CharacterData,
 		weapon: WeaponData,
-		skill: SkillData,
+		skill_or_ability: SkillTreeEntry,
 		result: AttackResult) -> AttackResult:
 
 	# Force stand-up if the attacker is crouched.
@@ -142,7 +143,7 @@ func _resolve_magical(
 		attacker.is_crouched = false
 
 	# Check if the spell has the "Direct" keyword → treat as Ranged rules.
-	var has_direct: bool = (weapon.has_keyword("Direct") or (skill != null and skill.has_keyword("Direct")))
+	var has_direct: bool = (weapon.has_keyword("Direct") or (skill_or_ability != null and skill_or_ability.has_keyword("Direct")))
 
 	if has_direct:
 		# Use strict ranged LoS rules.

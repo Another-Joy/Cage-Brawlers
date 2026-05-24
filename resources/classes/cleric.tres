@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="ClassData" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/ClassData.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/data/DiceValue.gd" id="2"]
+
+[sub_resource type="Resource" id="hit_dice"]
+script = ExtResource("2")
+count = 1
+sides = 8
+
+[resource]
+script = ExtResource("1")
+class_id = "cleric"
+display_name = "Cleric"
+primary_stat = 3
+secondary_stat = 2
+hit_dice = SubResource("hit_dice")
+level_health_modifier = 1
+main_damage_type = 2
+health_segment_percentages = PackedFloat32Array(0.3, 0.3, 0.4)
+weapon_categories = ["mace", "staff", "shield"]

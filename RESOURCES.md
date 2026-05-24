@@ -1,6 +1,6 @@
 # Cage Brawlers — Resources Guide
 
-This guide explains how the game's data (characters, weapons, armor) is stored as Godot **Resource** (`.tres`) files, and how to add or customise them.
+This guide explains how the game's data (characters, weapons, armor, classes, skills, abilities) is stored as Godot **Resource** (`.tres`) files, and how to add or customise them.
 
 ---
 
@@ -8,6 +8,12 @@ This guide explains how the game's data (characters, weapons, armor) is stored a
 
 ```
 resources/
+├── classes/
+│   ├── warrior.tres
+│   ├── ranger.tres
+│   ├── mage.tres
+│   ├── rogue.tres
+│   └── cleric.tres
 ├── weapons/
 │   ├── sword.tres
 │   ├── shortbow.tres
@@ -215,6 +221,161 @@ Set `load_steps` to `1 + <number of ext_resource lines>`.
 2. Add health-segment percentages for the new class in `ClassDefinitions.get_segment_percentages()`.
 3. Optionally add allowed weapon categories in `ClassDefinitions.get_weapon_categories()`.
 4. Use the new enum integer value in character `.tres` files.
+
+---
+
+## Class files (`ClassData`)
+
+Classes are stored as `.tres` files under `resources/classes/`. Each file fully defines
+a character archetype and is linked into character files via the `class_data` field.
+
+### Properties
+
+| Property | Type | Description |
+|---|---|---|
+| `class_id` | String | Snake_case identifier (e.g. `"warrior"`). |
+| `display_name` | String | Human-readable name shown in the UI. |
+| `primary_stat` | int | `0`=STR, `1`=DEX, `2`=CON, `3`=WIS, `4`=INT. |
+| `secondary_stat` | int | Same enum as `primary_stat`. |
+| `hit_dice` | DiceValue | Sub-resource: `count` dice of `sides` sides rolled each level-up. |
+| `level_health_modifier` | int | Flat HP added on top of the hit-dice roll each level. |
+| `main_damage_type` | int | `0`=Physical, `1`=Ranged, `2`=Magical. |
+| `health_segment_percentages` | PackedFloat32Array | Three floats summing to `1.0` (left→right segment sizes). |
+| `weapon_categories` | Array[String] | Categories for the weapon skill tree (e.g. `["sword","axe"]`). |
+
+### Example — Warrior class
+
+```gdresource
+[gd_resource type="Resource" script_class="ClassData" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/ClassData.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/data/DiceValue.gd" id="2"]
+
+[sub_resource type="Resource" id="hit_dice"]
+script = ExtResource("2")
+count = 1
+sides = 10
+
+[resource]
+script = ExtResource("1")
+class_id = "warrior"
+display_name = "Warrior"
+primary_stat = 0
+secondary_stat = 1
+hit_dice = SubResource("hit_dice")
+level_health_modifier = 2
+main_damage_type = 0
+health_segment_percentages = PackedFloat32Array(0.35, 0.35, 0.3)
+weapon_categories = ["sword", "axe", "mace"]
+```
+
+To link a class resource to a character, add an `ext_resource` entry pointing at the
+`.tres` file and set `class_data = ExtResource("<id>")` in the `[resource]` block.
+
+---
+
+## Skill files (`SkillData`) — passive skills
+
+Passive skills fire automatically when their trigger conditions are met. They are stored
+as `.tres` files and referenced from `SkillTreeManager` pools.
+
+### Key Properties
+
+| Property | Type | Description |
+|---|---|---|
+| `entry_id` | String | Unique snake_case ID. |
+| `entry_name` | String | Display name. |
+| `required_level` | int | Minimum level to learn. |
+| `tree_type` | int | `0`=CLASS, `1`=ATTRIBUTE, `2`=WEAPON. |
+| `triggers` | Array[SkillCondition] | OR list of (major + optional minor) trigger pairs. |
+| `effects` | Array[SkillEffect] | Effects applied when any trigger fires. |
+
+### SkillCondition sub-resource
+
+| Property | Type | Values |
+|---|---|---|
+| `major` | int | `ALWAYS`=0, `ON_ATTACK`=1, `ON_DEAL_DAMAGE`=2, `ON_TAKE_DAMAGE`=3, `ON_ATTACKED`=4, `ON_MOVE`=5, `ON_CROUCH`=6, `ON_STAND_UP`=7, `ON_TURN_START`=8, `ON_TURN_END`=9 |
+| `minor` | int | `NONE`=0, `TARGET_WEARING_HEAVY_ARMOR`=1, `TARGET_CROUCHED`=4, `ATTACKER_USING_RANGED`=6, `SELF_CROUCHED`=8, `SELF_WEAPON_HAS_KEYWORD`=10, … |
+| `string_param` | String | Extra parameter for keyword-based minors. |
+
+### SkillEffect sub-resource
+
+| Property | Type | Description |
+|---|---|---|
+| `effect_type` | int | `ADD_DAMAGE`=0, `REDUCE_INCOMING_DAMAGE`=1, `ADD_ATTACK_ACCURACY`=2, `REDUCE_ACCURACY`=3, `ADD_EVASION`=4, `MODIFY_MOVEMENT`=5, `HEAL`=6, `APPLY_BUFF`=7, `APPLY_DEBUFF`=8 |
+| `target` | int | `SELF`=0, `ATTACKER`=1, `TARGET`=2, `ALL_ALLIES`=3, `ALL_ENEMIES`=4 |
+| `value_type` | int | `FLAT`=0, `DICE`=1, `STAT_MODIFIER`=2 |
+| `flat_value` | int | Used when `value_type`=FLAT. |
+| `dice` | DiceValue | Sub-resource used when `value_type`=DICE. |
+| `modifier_stat` | String | Stat name used when `value_type`=STAT_MODIFIER. |
+| `modifier_divisor` | int | Divisor for stat modifier. |
+
+---
+
+## Ability files (`AbilityData`) — active abilities
+
+Active abilities are used by the player during a specific action phase. They are also
+stored as `.tres` files and can appear in any of the three skill trees.
+
+### Key Properties
+
+| Property | Type | Description |
+|---|---|---|
+| `entry_id` | String | Unique snake_case ID. |
+| `entry_name` | String | Display name. |
+| `required_level` | int | Minimum level to learn. |
+| `phases` | int | Bitmask: `1`=Beginning, `2`=Main, `4`=Ending. OR values together for multi-phase. |
+| `conditions` | Array[AbilityCondition] | All must be true (AND) for the ability to be available. |
+| `actions` | Array[AbilityAction] | Ordered actions performed when the ability is used. |
+
+### AbilityCondition sub-resource
+
+| Property | Type | Description |
+|---|---|---|
+| `condition_type` | int | `SELF_CROUCHED`=0, `ADJACENT_BARRICADE`=1, `HAS_AMMO`=2, `HAS_SKILL`=3, `TARGET_IN_RANGE`=4 |
+| `must_be_true` | bool | `false` inverts the check (e.g. "must NOT be crouched"). |
+| `string_param` | String | Ammo type name or skill entry_id for relevant conditions. |
+
+### AbilityAction sub-resource
+
+| Property | Type | Description |
+|---|---|---|
+| `action_type` | int | `ATTACK`=0, `MOVE`=1, `HEAL`=2, `APPLY_BUFF`=3, `APPLY_DEBUFF`=4, `CROUCH`=5, `STAND_UP`=6, `GRANT_BONUS`=7 |
+| `target_type` | int | `SELF`=0, `ALLY`=1, `ENEMY`=2, `ANY`=3 |
+| `range_override` | int | Override range (0=use weapon/movement default). |
+| `bonus_dice` | DiceValue | Extra dice rolled for ATTACK/HEAL value. |
+| `flat_bonus` | int | Flat value added to the action's result. |
+| `string_param` | String | Buff ID (APPLY_BUFF/DEBUFF) or stat name (GRANT_BONUS). |
+
+### Example — Stand Up ability
+
+```gdresource
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/AbilityData.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/data/AbilityCondition.gd" id="2"]
+[ext_resource type="Script" path="res://scripts/data/AbilityAction.gd" id="3"]
+
+[sub_resource type="Resource" id="cond"]
+script = ExtResource("2")
+condition_type = 0
+must_be_true = true
+
+[sub_resource type="Resource" id="act"]
+script = ExtResource("3")
+action_type = 6
+target_type = 0
+
+[resource]
+script = ExtResource("1")
+entry_id = "stand_up"
+entry_name = "Stand Up"
+description = "Stand up from a crouched position."
+required_level = 1
+phases = 1
+conditions = [SubResource("cond")]
+actions = [SubResource("act")]
+```
 
 ---
 

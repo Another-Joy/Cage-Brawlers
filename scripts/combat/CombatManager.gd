@@ -185,7 +185,7 @@ func process_attack_action(
 		attacker: CharacterData,
 		target: CharacterData,
 		weapon: WeaponData = null,
-		skill: SkillData = null) -> AttackResolver.AttackResult:
+		skill_or_ability: SkillTreeEntry = null) -> AttackResolver.AttackResult:
 
 	var dummy_result: AttackResolver.AttackResult = AttackResolver.AttackResult.new()
 	if attacker != _active_character:
@@ -212,7 +212,7 @@ func process_attack_action(
 					_on_character_knocked_down(target)
 		result = dual_results[0] if dual_results.size() > 0 else dummy_result
 	else:
-		result = _attack_resolver.resolve_attack(attacker, target, weapon, skill)
+		result = _attack_resolver.resolve_attack(attacker, target, weapon, skill_or_ability)
 		if result.valid and result.hit:
 			var knocked_down: bool = target.apply_damage(result.damage_dealt)
 			if knocked_down:
@@ -332,8 +332,8 @@ func _get_living_characters() -> Array[CharacterData]:
 ## Returns true if the character has a vault skill (stub; extend with real skill lookup).
 func _character_can_vault(character: CharacterData) -> bool:
 	for tree in character.skill_trees:
-		for skill in tree:
-			if (skill as SkillData).has_keyword("Vault"):
+		for entry in tree:
+			if (entry as SkillTreeEntry).has_keyword("Vault"):
 				return true
 	return false
 
@@ -342,3 +342,136 @@ func advance_to_ending_phase() -> void:
 	if _current_phase == ActionPhase.MAIN:
 		_current_phase = ActionPhase.ENDING
 		emit_signal("turn_started", _active_character, _current_phase)
+
+# ---------------------------------------------------------------------------
+# Ability Execution
+# ---------------------------------------------------------------------------
+
+## Attempts to execute an AbilityData for the active character.
+## target is the primary target character (may be null for self-only abilities).
+## Returns false if the ability is rejected (wrong phase, failed conditions, etc.).
+func process_ability(
+		character: CharacterData,
+		ability: AbilityData,
+		target: CharacterData = null) -> bool:
+
+	if character != _active_character:
+		return false
+
+	# Phase check: ability must be usable in the current phase.
+	var phase_index: int = _current_phase as int
+	if not ability.is_usable_in_phase(phase_index):
+		return false
+
+	# Condition check: all AbilityConditions must pass.
+	if not _check_ability_conditions(character, ability, target):
+		return false
+
+	# Execute each action in order.
+	for action in ability.actions:
+		_execute_ability_action(character, action, target)
+
+	return true
+
+## Evaluates all AbilityConditions on an ability.
+## Returns true only if every condition is satisfied.
+func _check_ability_conditions(
+		character: CharacterData,
+		ability: AbilityData,
+		target: CharacterData) -> bool:
+
+	for condition in ability.conditions:
+		var satisfied: bool = _evaluate_ability_condition(character, condition, target)
+		# If must_be_true is false, invert the result.
+		if condition.must_be_true != satisfied:
+			return false
+	return true
+
+## Evaluates a single AbilityCondition. Returns the raw (uninverted) truth value.
+func _evaluate_ability_condition(
+		character: CharacterData,
+		condition: AbilityCondition,
+		_target: CharacterData) -> bool:
+
+	match condition.condition_type:
+		AbilityCondition.ConditionType.SELF_CROUCHED:
+			return character.is_crouched
+		AbilityCondition.ConditionType.ADJACENT_BARRICADE:
+			var adjacent: Array[Vector3i] = _map_data.get_adjacent_tiles(character.grid_position)
+			for neighbour in adjacent:
+				var boundary: BoundaryData = _map_data.get_boundary(character.grid_position, neighbour)
+				if boundary != null and boundary.has_barricade:
+					return true
+			return false
+		AbilityCondition.ConditionType.HAS_AMMO:
+			match condition.string_param.to_lower():
+				"bullets": return character.bullets_count > 0
+				"bolts":   return character.bolts_count > 0
+				"arrows":  return character.arrows_count > 0
+			return false
+		AbilityCondition.ConditionType.HAS_SKILL:
+			for tree in character.skill_trees:
+				for entry in tree:
+					if (entry as SkillTreeEntry).entry_id == condition.string_param:
+						return true
+			return false
+		AbilityCondition.ConditionType.TARGET_IN_RANGE:
+			# Basic range check using target and active weapon range.
+			if _target == null or character.main_hand_slot == null:
+				return false
+			var dist: int = _manhattan_distance(character.grid_position, _target.grid_position)
+			return dist <= character.main_hand_slot.attack_range
+	return true
+
+## Executes a single AbilityAction for a character.
+## This is a thin dispatch layer; complex actions delegate to existing subsystems.
+func _execute_ability_action(
+		character: CharacterData,
+		action: AbilityAction,
+		target: CharacterData) -> void:
+
+	match action.action_type:
+		AbilityAction.ActionType.STAND_UP:
+			character.is_crouched = false
+		AbilityAction.ActionType.CROUCH:
+			character.is_crouched = true
+		AbilityAction.ActionType.MOVE:
+			# MOVE actions are declared via process_move_action; this hook is for
+			# abilities that grant bonus movement (e.g. a dash), not a full move phase.
+			# Actual path resolution is left to the caller with the destination tile.
+			pass
+		AbilityAction.ActionType.ATTACK:
+			if target == null or character.main_hand_slot == null:
+				return
+			var result: AttackResolver.AttackResult = _attack_resolver.resolve_attack(
+					character, target, character.main_hand_slot)
+			if result.valid and result.hit:
+				var knocked_down: bool = target.apply_damage(result.damage_dealt)
+				if knocked_down:
+					_on_character_knocked_down(target)
+		AbilityAction.ActionType.HEAL:
+			var heal_amount: float = float(action.flat_bonus)
+			if action.bonus_dice != null:
+				heal_amount += float(action.bonus_dice.roll(_dice_roller, action.uses_reliability))
+			var heal_target: CharacterData = _resolve_action_target(character, action, target)
+			if heal_target != null:
+				heal_target.apply_damage(-heal_amount)
+		_:
+			pass  # Other action types (APPLY_BUFF, GRANT_BONUS, etc.) are stubs for now.
+
+## Resolves the target CharacterData for an AbilityAction given the ability's TargetType.
+func _resolve_action_target(
+		character: CharacterData,
+		action: AbilityAction,
+		declared_target: CharacterData) -> CharacterData:
+
+	match action.target_type:
+		AbilityAction.TargetType.SELF:
+			return character
+		AbilityAction.TargetType.ALLY, AbilityAction.TargetType.ENEMY, AbilityAction.TargetType.ANY:
+			return declared_target
+	return declared_target
+
+## Simple Manhattan distance helper (ignores z/floor for range checks).
+func _manhattan_distance(a: Vector3i, b: Vector3i) -> int:
+	return abs(a.x - b.x) + abs(a.y - b.y)

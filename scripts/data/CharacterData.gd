@@ -32,6 +32,11 @@ enum CharacterClass {
 @export var level: int = 1
 @export var experience: int = 0
 @export var character_class: CharacterClass = CharacterClass.WARRIOR
+## Full class resource. When set, class-specific values (hit dice, stat
+## affinities, segment percentages, weapon categories) are read from here
+## rather than from the ClassDefinitions utility. Kept optional so that
+## existing character files without a class_data reference continue to work.
+@export var class_data: ClassData = null
 @export var state_flag: StateFlag = StateFlag.LIVING
 
 # ---------------------------------------------------------------------------
@@ -65,7 +70,8 @@ enum CharacterClass {
 # ---------------------------------------------------------------------------
 
 @export_group("Skills")
-## Three skill trees stored as arrays of SkillData resources.
+## Three skill trees stored as arrays of SkillTreeEntry resources
+## (either SkillData for passive skills or AbilityData for active abilities).
 @export var skill_trees: Array[Array] = [[], [], []]
 ## Points spent in each tree node (parallel array to each tree).
 @export var skill_points_spent: Array[int] = []
