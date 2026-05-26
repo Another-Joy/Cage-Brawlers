@@ -55,26 +55,13 @@ enum WeaponType {
 ## NONE means no ammo is needed; any other value requires the matching count > 0.
 @export var ammo_type: AmmoType = AmmoType.NONE
 
-# ---------------------------------------------------------------------------
-# Versatile Keyword
-# ---------------------------------------------------------------------------
-
-## Two-handed damage dice count when Versatile keyword is present.
-## E.g. 1d10 two-handed on a longsword (1d8 one-handed): set to 1.
-## 0 means not Versatile (or not set).
-@export var versatile_two_handed_count: int = 0
-## Two-handed damage die size when Versatile keyword is present (e.g. 10 for d10).
-@export var versatile_two_handed_sides: int = 0
-
-# ---------------------------------------------------------------------------
-# Magazine Keyword
-# ---------------------------------------------------------------------------
-
-## Maximum magazine size for weapons with the "Magazine" keyword.
-## 0 means no magazine (weapon does not consume from a magazine).
-## Attacking consumes 1 ammo per shot. A full reload is a Beginning phase action.
-## The weapon starts each match with a full magazine (not counted towards belt capacity).
-@export var magazine_capacity: int = 0
+## Base reliability (0.0–1.0) baked into this weapon's damage roll.
+## 0.0 = fully random; 1.0 = always maximum roll.
+## Applied before ability-level reliability modifiers.
+## Note: "Dice Value can have incorporated Reliability" from the spec —
+## no base reliability is set on any weapon currently; the field is here
+## for future use and for class hit dice expressions (via DiceValue).
+@export var base_reliability: float = 0.0
 
 # ---------------------------------------------------------------------------
 # Derived Helpers
@@ -98,9 +85,14 @@ func is_versatile() -> bool:
 func is_finesse() -> bool:
 	return has_keyword("Finesse")
 
-## Returns true if this weapon has a magazine.
+## Returns true if this weapon has a magazine (Magazine keyword).
 func has_magazine() -> bool:
 	return has_keyword("Magazine")
+
+## Returns this weapon's magazine capacity from keyword_params.
+## Returns 0 if the Magazine keyword is absent or capacity is not set.
+func get_magazine_capacity() -> int:
+	return int(get_keyword_param("Magazine", "capacity", 0))
 
 ## Returns true if this weapon requires no movement in the Beginning Phase to fire.
 ## Abilities with ignore_aiming_restriction bypass this check.
@@ -123,11 +115,15 @@ func is_magical() -> bool:
 func requires_ammo() -> bool:
 	return ammo_type != AmmoType.NONE
 
-## Returns the damage dice count and sides considering whether the character is
-## wielding the weapon two-handed (only relevant for Versatile weapons).
+## Returns the effective [count, sides] for the damage roll, considering
+## whether the weapon is wielded two-handed (only relevant for Versatile weapons).
+## Two-handed dice are stored in keyword_params["Versatile"]["count"/"sides"].
 func get_effective_damage_dice(two_handed: bool) -> Array[int]:
-	if two_handed and is_versatile() and versatile_two_handed_count > 0:
-		return [versatile_two_handed_count, versatile_two_handed_sides]
+	if two_handed and is_versatile():
+		var count: int = int(get_keyword_param("Versatile", "count", damage_dice_count))
+		var sides: int = int(get_keyword_param("Versatile", "sides", damage_dice_sides))
+		if count > 0 and sides > 0:
+			return [count, sides]
 	return [damage_dice_count, damage_dice_sides]
 
 ## Returns the weapon type name as a lowercase string (e.g. "axe", "sword").

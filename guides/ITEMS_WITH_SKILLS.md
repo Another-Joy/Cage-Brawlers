@@ -215,15 +215,42 @@ actions = [SubResource("action_attack")]
 
 ## Keyword Reference
 
-These keywords are stored in `EquipmentData.keywords: Array[String]` and detected by the named helpers on `WeaponData`:
+Keywords are stored in `EquipmentData.keywords: Array[String]` (boolean presence) and, for keywords with values, in `EquipmentData.keyword_params: Dictionary` (a `Dictionary[String, Dictionary]`).
 
-| Keyword | Helper | Behaviour |
+### Why `keyword_params`?
+
+Rather than adding a dedicated field to `WeaponData` for every parametric keyword (which would bloat every weapon with unused data), parametric keywords store their data in the shared `keyword_params` dict. This means a single weapon can carry any combination of keyword values without any new fields:
+
+```
+# Longsword — Versatile with 1d10 two-handed
+keywords = ["Versatile"]
+keyword_params = {"Versatile": {"count": 1, "sides": 10}}
+
+# Rifle — Magazine with capacity 5 (no Versatile entry needed)
+keywords = ["Two-Handed", "Magazine", "Aiming"]
+keyword_params = {"Magazine": {"capacity": 5}}
+
+# Hypothetical future weapon with both
+keywords = ["Versatile", "Magazine"]
+keyword_params = {"Versatile": {"count": 2, "sides": 8}, "Magazine": {"capacity": 3}}
+```
+
+Access from GDScript using the helper on `EquipmentData`:
+
+```gdscript
+weapon.get_keyword_param("Versatile", "count", weapon.damage_dice_count)
+weapon.get_keyword_param("Magazine", "capacity", 0)
+```
+
+### Keyword table
+
+| Keyword | Helper on WeaponData | Behaviour |
 |---|---|---|
-| `Versatile` | `is_versatile()` | Can be wielded one- or two-handed. Two-handed dice stored in `versatile_two_handed_count`/`sides`. |
-| `Finesse` | `is_finesse()` | Uses Wis for damage bonus, double Dex accuracy bonus, gains reliability from Dex. |
+| `Versatile` | `is_versatile()` | One- or two-handed. Two-handed dice in `keyword_params["Versatile"]["count"/"sides"]`. |
+| `Finesse` | `is_finesse()` | Uses Wis for damage bonus; double Dex accuracy bonus; Dex also grants reliability at the same rate. |
 | `Light` | `is_light_weapon()` | Can be equipped in the off-hand. Each weapon makes one attack when dual-wielding. |
 | `Two-Handed` | `is_two_handed()` | Locks the off-hand slot. |
-| `Magazine` | `has_magazine()` | Weapon has a magazine. Capacity in `magazine_capacity`. Full reload is a Beginning action. |
+| `Magazine` | `has_magazine()` / `get_magazine_capacity()` | Ammo stored per-weapon. Capacity in `keyword_params["Magazine"]["capacity"]`. Full reload = Beginning action. |
 | `Aiming` | `requires_aiming()` | Cannot be fired after moving (unless ability has `ignore_aiming_restriction = true`). Ignores accuracy fall-off. |
 | `Inaccurate` | `is_inaccurate()` | Accuracy fall-off is doubled. |
 
@@ -243,6 +270,70 @@ Use the integer value in .tres `weapon_type` field:
 | RIFLE | 5 |
 | TOME | 6 |
 | BALL | 7 |
+
+---
+
+## Accuracy, Evasion, Reliability & Crits
+
+### Accuracy formula
+
+All accuracy values are **percentage points** (0–100+):
+
+```
+final_accuracy = 80 (BASE) + stat_bonus + situational_modifiers + ability_modifier − target_evasion
+```
+
+A d100 is rolled:
+- `roll ≤ min(100, final_accuracy)` → **hit**
+- `roll ≤ max(0, final_accuracy − 100)` → **critical hit** (also always a hit)
+
+**Examples:**
+
+| Situation | final_accuracy | Hit % | Crit % |
+|---|---|---|---|
+| No modifiers, no evasion | 80 + stat_bonus | ~85 | 0 |
+| −20 accuracy (e.g. cover) | 60 + stat_bonus | ~65 | 0 |
+| +15 accuracy | 95 + stat_bonus | ~100 | 0 |
+| +10 accuracy, 25 evasion | 65 | 65 | 0 |
+| Very high buffs: +35 | 115 | 100 | 15 |
+
+### Evasion
+
+Evasion is a **flat integer** subtracted from `final_accuracy`. Sources:
+- `CharacterData.get_character_evasion()` — `dex / 2` + `armor.evasion_modifier`
+- `CharacterData.get_equipment_evasion()` — shield/buff `evasion_bonus`
+
+Example: Armor with `evasion_modifier = 10` gives +10 flat evasion → attacker's 85% becomes 75%.
+
+### Reliability
+
+Reliability is a value in **[0.0, 1.0]** that biases the damage roll toward the maximum possible result **before the crit multiplier**:
+
+```
+adjusted_roll = raw_roll + floor(reliability × (max_possible − raw_roll))
+where max_possible = dice_count × dice_sides
+```
+
+- **0.0** — fully random (no adjustment)
+- **0.5** — halfway between rolled and maximum
+- **1.0** — always maximum roll
+
+Sources:
+- `weapon.base_reliability` — baked into the weapon (default `0.0`; no weapon has a base value currently)
+- `ability.reliability_modifier_percent` — ability adds/subtracts percentage points (e.g. `+40.0` → adds `0.4` reliability)
+- Skills with `ADD_RELIABILITY` effect type add flat percentage points
+
+The combined reliability is clamped to [0.0, 1.0] before application.
+
+### Critical Hits
+
+When a crit is triggered, damage is multiplied **after** all other effects and modifiers (armor subtraction, reliability adjustment):
+
+```
+final_damage = raw_damage × (1.0 + CRIT_DAMAGE_PERCENT / 100.0)
+```
+
+Default: `CRIT_DAMAGE_PERCENT = 50.0` → **1.5× damage**. At 100% → **2× damage**.
 
 ---
 
