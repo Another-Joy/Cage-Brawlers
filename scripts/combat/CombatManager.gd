@@ -115,7 +115,6 @@ func _begin_next_turn() -> void:
 
 	# Reset per-turn combat state for the incoming active character.
 	_active_character.moved_this_turn = false
-	_tick_cooldowns(_active_character)
 
 	_current_phase = ActionPhase.BEGINNING
 	emit_signal("turn_started", _active_character, _current_phase)
@@ -242,6 +241,8 @@ func process_end_turn(character: CharacterData) -> bool:
 	if _current_phase == ActionPhase.BEGINNING or _current_phase == ActionPhase.MAIN:
 		# Skip remaining phases and end the turn.
 		pass
+	# Tick cooldowns at the end of this character's turn (per spec).
+	_tick_cooldowns(character)
 	_current_phase = ActionPhase.DONE
 	emit_signal("turn_ended", character)
 	_initiative_manager.advance_turn()

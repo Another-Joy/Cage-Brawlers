@@ -5,7 +5,7 @@
 [resource]
 script = ExtResource("1")
 armor_type = 1
-armor_value = 13
+armor_value = 18
 evasion_modifier = -30
 movement_modifier = -1
 ammo_slots_capacity = 4

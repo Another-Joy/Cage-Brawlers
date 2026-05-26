@@ -272,7 +272,7 @@ These modifiers also apply to any dice bonuses added by skills/effects that cont
 - `cooldown_turns = 3` — unavailable for 2 turns.
 - `cooldown_turns = -1` — special/non-standard cooldown (handled in game logic, not by the standard tick system).
 
-Cooldowns tick down at the **start** of the character's turn (via `CombatManager._tick_cooldowns`).
+Cooldowns tick down at the **end** of the character's turn (via `CombatManager._tick_cooldowns`).
 
 ---
 

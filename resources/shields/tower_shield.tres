@@ -8,6 +8,6 @@ item_id = "tower_shield"
 item_name = "Tower Shield"
 description = "A massive shield providing excellent protection at the cost of mobility."
 equipment_type = 1
-weight = 6.0
+weight = 5.0
 evasion_bonus = 30
 movement_modifier = -1
