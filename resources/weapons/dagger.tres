@@ -6,10 +6,11 @@
 script = ExtResource("1")
 item_id = "dagger"
 item_name = "Dagger"
-description = "A light blade suited for off-hand use or thrown attacks."
-weight = 0.5
-keywords = ["Light"]
+description = "A light finesse blade suited for off-hand use or stealth attacks."
+weight = 1.0
+keywords = ["Light", "Finesse"]
 damage_type = 0
+weapon_type = 2
 damage_dice_count = 1
 damage_dice_sides = 4
 attack_range = 1

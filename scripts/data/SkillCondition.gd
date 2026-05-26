@@ -25,6 +25,7 @@ enum MajorCondition {
 	ON_STAND_UP,     ## When this character stands up.
 	ON_TURN_START,   ## At the very start of this character's turn.
 	ON_TURN_END,     ## At the very end of this character's turn.
+	ON_HEAL,         ## When this character receives healing (any source).
 }
 
 # ---------------------------------------------------------------------------
@@ -52,6 +53,10 @@ enum MinorCondition {
 
 	## Weapon keyword on the active weapon
 	SELF_WEAPON_HAS_KEYWORD,   ## Requires string_param to name the keyword.
+
+	## Attack classification (relevant for ON_ATTACK / ON_DEAL_DAMAGE)
+	ATTACK_IS_SURPRISE,        ## The attack qualifies as a Surprise attack.
+	ATTACK_IS_ABILITY,         ## The attack was made as part of an active Ability.
 }
 
 # ---------------------------------------------------------------------------

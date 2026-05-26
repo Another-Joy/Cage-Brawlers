@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/AbilityData.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/data/AbilityAction.gd" id="2"]
+[ext_resource type="Script" path="res://scripts/data/DiceValue.gd" id="3"]
+
+[sub_resource type="Resource" id="heal_dice"]
+script = ExtResource("3")
+count = 2
+sides = 8
+
+[sub_resource type="Resource" id="action_heal"]
+script = ExtResource("2")
+action_type = 2
+target_type = 3
+bonus_dice = SubResource("heal_dice")
+flat_bonus = 5
+
+[resource]
+script = ExtResource("1")
+entry_id = "regenerate"
+entry_name = "Regenerate"
+description = "Channel restorative magic to heal a chosen ally (or yourself) for 2d8+5 HP."
+phases = 2
+weapon_requirements = Array[String](["ball", "tome"])
+cooldown_turns = 3
+actions = [SubResource("action_heal")]

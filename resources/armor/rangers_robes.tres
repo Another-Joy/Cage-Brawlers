@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="ArmorData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/ArmorData.gd" id="1"]
+[ext_resource type="Resource" path="res://resources/skills/rangers_robes_skill.tres" id="2"]
+
+[resource]
+script = ExtResource("1")
+armor_type = 0
+armor_value = 0
+evasion_modifier = 10
+movement_modifier = 0
+ammo_slots_capacity = 15
+allows_arrows = true
+potion_slots = 2
+item_id = "cloth_ranger"
+item_name = "Ranger's Robes"
+description = "Lightweight robes tuned for hunters. All damaging Ranged attacks and abilities gain +30% Reliability and +30% Accuracy."
+equipment_type = 3
+weight = 3.0
+granted_skills = [ExtResource("2")]

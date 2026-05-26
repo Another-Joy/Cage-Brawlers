@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/AbilityData.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/data/AbilityAction.gd" id="2"]
+[ext_resource type="Script" path="res://scripts/data/AbilityCondition.gd" id="3"]
+
+[sub_resource type="Resource" id="action_buff"]
+script = ExtResource("2")
+action_type = 3
+target_type = 0
+string_param = "riposte_stance"
+
+[resource]
+script = ExtResource("1")
+entry_id = "riposte"
+entry_name = "Riposte"
+description = "Enter a defensive stance. The next time a Melee attack would hit you, you instead make a Melee attack against the attacker with -50% Reliability. This fades at the start of your next turn or when hit by a non-Melee attack. Cooldown: be hit by 2 attacks."
+phases = 4
+weapon_requirements = Array[String](["sword", "axe", "dagger"])
+cooldown_turns = 2
+reliability_modifier_percent = -50.0
+actions = [SubResource("action_buff")]

@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="WeaponData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/WeaponData.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+item_id = "handaxe"
+item_name = "Handaxe"
+description = "A light axe that can be carried in the off-hand."
+weight = 1.5
+keywords = ["Light"]
+damage_type = 0
+weapon_type = 1
+damage_dice_count = 1
+damage_dice_sides = 6
+attack_range = 1
+ammo_type = 0

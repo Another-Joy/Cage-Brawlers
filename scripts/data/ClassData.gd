@@ -39,17 +39,22 @@ enum StatType {
 # Stat Affinity
 # ---------------------------------------------------------------------------
 
-## The stat that most strongly defines this class's offensive output.
-@export var primary_stat: StatType = StatType.STRENGTH
-## The stat that provides secondary scaling (accuracy, defences, utility).
-@export var secondary_stat: StatType = StatType.DEXTERITY
+## The stats that most strongly define this class's offensive output.
+## More than one can be listed; the first is the dominant primary stat.
+@export var primary_stats: Array[StatType] = []
+
+## The stats that provide secondary scaling (accuracy, defences, utility).
+## More than one can be listed.
+@export var secondary_stats: Array[StatType] = []
 
 # ---------------------------------------------------------------------------
 # Hit Dice & HP Growth
 # ---------------------------------------------------------------------------
 
 ## Dice rolled per level-up to determine HP gained.
-## E.g. a Warrior might roll 1d10; a Mage 1d6.
+## E.g. a Fighter rolls 3d6; a Mage rolls 1d8.
+## Set the DiceValue.reliability field for classes whose hit dice always use
+## reliability (e.g. Fighter +20%, Brawler +50%).
 @export var hit_dice: DiceValue = null
 
 ## Flat HP added on top of the hit-dice roll each level-up.
@@ -62,7 +67,7 @@ enum StatType {
 
 ## The primary damage type this class outputs.
 ## Used to determine which stat bonuses apply by default and for skill-tree
-## filtering (e.g. a Warrior's class tree focuses on Physical abilities).
+## filtering (e.g. a Fighter's class tree focuses on Physical abilities).
 @export var main_damage_type: WeaponData.DamageType = WeaponData.DamageType.PHYSICAL
 
 # ---------------------------------------------------------------------------
@@ -78,13 +83,22 @@ enum StatType {
 # Weapon Categories (for Weapon Skill Tree generation)
 # ---------------------------------------------------------------------------
 
-## List of weapon category strings this class can use for its weapon skill tree.
-## E.g. ["sword", "axe", "mace"] for Warriors.
+## List of weapon type names this class can use for its weapon skill tree.
+## Values should match WeaponData.WeaponType key names in lowercase
+## (e.g. ["sword", "axe"] for Fighters).
 @export var weapon_categories: Array[String] = []
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+## Returns the dominant primary stat (first entry), or STRENGTH if none set.
+func get_primary_stat() -> StatType:
+	return primary_stats[0] if primary_stats.size() > 0 else StatType.STRENGTH
+
+## Returns the dominant secondary stat (first entry), or DEXTERITY if none set.
+func get_secondary_stat() -> StatType:
+	return secondary_stats[0] if secondary_stats.size() > 0 else StatType.DEXTERITY
 
 ## Returns the character stat value from char_data for a given StatType.
 ## Useful for class-aware damage/accuracy calculations.

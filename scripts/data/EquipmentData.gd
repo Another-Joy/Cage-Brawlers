@@ -31,6 +31,12 @@ enum EquipmentType {
 ## Keywords applied to this item (e.g. "Light", "Two-Handed", "Direct").
 @export var keywords: Array[String] = []
 
+## Passive skills and active abilities granted to the character while this
+## item is equipped. Use SkillData resources for always-on passive effects
+## (e.g. "while wearing this armor, ranged attacks gain +30% reliability")
+## and AbilityData resources for active abilities the player can trigger.
+@export var granted_skills: Array[SkillTreeEntry] = []
+
 # ---------------------------------------------------------------------------
 # Keyword Helpers
 # ---------------------------------------------------------------------------

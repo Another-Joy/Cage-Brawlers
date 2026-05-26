@@ -13,13 +13,18 @@ extends Resource
 enum EffectType {
 	ADD_DAMAGE,              ## Add extra damage to the attack being resolved.
 	REDUCE_INCOMING_DAMAGE,  ## Reduce damage received by the target of the effect.
-	ADD_ATTACK_ACCURACY,     ## Add bonus to the attacker's accuracy roll.
+	ADD_ATTACK_ACCURACY,     ## Add bonus (flat integer) to the attacker's accuracy roll.
 	REDUCE_ACCURACY,         ## Reduce the attacker's accuracy roll.
 	ADD_EVASION,             ## Add to the character's evasion for this hit.
 	MODIFY_MOVEMENT,         ## Change movement tiles for this turn.
 	HEAL,                    ## Restore HP equal to the value.
 	APPLY_BUFF,              ## Apply a named buff status (see string_param).
 	APPLY_DEBUFF,            ## Apply a named debuff status (see string_param).
+	ADD_RELIABILITY,         ## Add percentage points to this attack's reliability.
+	                         ## flat_value is in whole percentage points
+	                         ## (e.g. flat_value = 30 means +30%).
+	ADD_RANGE,               ## Add flat tiles to the attack's effective range.
+	                         ## flat_value is the tile count (can be negative).
 }
 
 # ---------------------------------------------------------------------------

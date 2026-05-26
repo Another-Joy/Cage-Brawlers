@@ -1,0 +1,31 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/AbilityData.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/data/AbilityAction.gd" id="2"]
+[ext_resource type="Script" path="res://scripts/data/AbilityCondition.gd" id="3"]
+
+[sub_resource type="Resource" id="cond_crouched"]
+script = ExtResource("3")
+condition_type = 0
+must_be_true = true
+
+[sub_resource type="Resource" id="cond_barricade"]
+script = ExtResource("3")
+condition_type = 1
+must_be_true = true
+
+[sub_resource type="Resource" id="action_attack"]
+script = ExtResource("2")
+action_type = 0
+target_type = 2
+
+[resource]
+script = ExtResource("1")
+entry_id = "peek_shot"
+entry_name = "Peek Shot"
+description = "Shoot from behind cover without standing up or being revealed. Can only be done while crouched behind a barricade."
+phases = 2
+weapon_requirements = Array[String](["bow", "crossbow", "rifle"])
+conditions = [SubResource("cond_crouched"), SubResource("cond_barricade")]
+prevents_stand_up = true
+actions = [SubResource("action_attack")]

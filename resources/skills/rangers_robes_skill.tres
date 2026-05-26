@@ -1,0 +1,32 @@
+[gd_resource type="Resource" script_class="SkillData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/SkillData.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/data/SkillCondition.gd" id="3"]
+[ext_resource type="Script" path="res://scripts/data/SkillEffect.gd" id="4"]
+
+[sub_resource type="Resource" id="trigger"]
+script = ExtResource("3")
+major = 1
+minor = 7
+
+[sub_resource type="Resource" id="effect_reliability"]
+script = ExtResource("4")
+effect_type = 9
+target = 0
+value_type = 0
+flat_value = 30
+
+[sub_resource type="Resource" id="effect_accuracy"]
+script = ExtResource("4")
+effect_type = 2
+target = 0
+value_type = 0
+flat_value = 30
+
+[resource]
+script = ExtResource("1")
+entry_id = "rangers_robes_bonus"
+entry_name = "Ranger's Robes: Hunter's Instinct"
+description = "All damaging Ranged attacks and abilities gain +30% Reliability and +30% Accuracy."
+triggers = [SubResource("trigger")]
+effects = [SubResource("effect_reliability"), SubResource("effect_accuracy")]

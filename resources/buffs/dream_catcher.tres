@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="BuffItemData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/BuffItemData.gd" id="1"]
+[ext_resource type="Resource" path="res://resources/skills/dream_catcher_skill.tres" id="2"]
+
+[resource]
+script = ExtResource("1")
+item_id = "dream_catcher"
+item_name = "Dream Catcher"
+description = "A mystical charm that mends wounds as a new turn dawns. At the beginning of your turn, heal 2d4 HP."
+equipment_type = 2
+weight = 0.5
+granted_skills = [ExtResource("2")]

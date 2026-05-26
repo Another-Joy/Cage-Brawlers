@@ -60,6 +60,14 @@ enum TargetType {
 ## Whether this action uses the Reliability modifier when rolling dice.
 @export var uses_reliability: bool = false
 
+## Per-action accuracy modifier (percentage points, e.g. -20.0 = -20% accuracy).
+## Stacks with the parent AbilityData.accuracy_modifier_percent for this action.
+@export var accuracy_modifier_percent: float = 0.0
+
+## Per-action reliability modifier (percentage points, e.g. -50.0 = -50% reliability).
+## Stacks with the parent AbilityData.reliability_modifier_percent for this action.
+@export var reliability_modifier_percent: float = 0.0
+
 ## Extra string parameter:
 ##   APPLY_BUFF/APPLY_DEBUFF → buff/debuff identifier.
 ##   GRANT_BONUS             → name of the stat to temporarily boost

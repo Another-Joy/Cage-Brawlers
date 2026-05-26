@@ -5,13 +5,17 @@
 
 [sub_resource type="Resource" id="hit_dice"]
 script = ExtResource("2")
+count = 1
+sides = 8
 
 [resource]
 script = ExtResource("1")
 class_id = "mage"
 display_name = "Mage"
-primary_stat = 4
-secondary_stat = 3
+primary_stats = Array[ClassData.StatType]([4, 3])
+secondary_stats = Array[ClassData.StatType]([])
 hit_dice = SubResource("hit_dice")
+level_health_modifier = 1
 main_damage_type = 2
-weapon_categories = Array[String](["staff", "wand", "orb"])
+health_segment_percentages = Array[float]([0.34, 0.33, 0.33])
+weapon_categories = Array[String](["tome", "ball"])

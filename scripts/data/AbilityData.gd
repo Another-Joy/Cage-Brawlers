@@ -13,6 +13,14 @@ class_name AbilityData
 extends SkillTreeEntry
 
 # ---------------------------------------------------------------------------
+# Dice Tier Chain (used for damage modifiers)
+# ---------------------------------------------------------------------------
+
+## Ordered list of valid die sizes. Tier modifiers step through this chain.
+## -1 tier: d6 → d4  |  +1 tier: d6 → d8
+const DICE_TIERS: Array[int] = [2, 4, 6, 8, 10, 12, 16, 20]
+
+# ---------------------------------------------------------------------------
 # Phase Flags
 # ---------------------------------------------------------------------------
 
@@ -39,6 +47,69 @@ const PHASE_ENDING: int = 4
 @export var actions: Array[AbilityAction] = []
 
 # ---------------------------------------------------------------------------
+# Cooldown
+# ---------------------------------------------------------------------------
+
+## Number of turns this ability is unavailable after being used.
+## 0 = no cooldown.  2 = cannot be used the next turn; usable again on the
+## turn after that.  Cooldowns tick down at the end of each of the user's turns.
+## A value of -1 marks a special/non-standard cooldown (see description).
+@export var cooldown_turns: int = 0
+
+# ---------------------------------------------------------------------------
+# Weapon Requirements
+# ---------------------------------------------------------------------------
+
+## Weapon type names that satisfy this ability's equipment requirement.
+## OR logic: any single match allows the ability to be used.
+## Empty = no weapon restriction.
+## Values should match WeaponData.WeaponType key names in lowercase
+## (e.g. ["axe"] or ["sword", "axe", "dagger"]).
+@export var weapon_requirements: Array[String] = []
+
+# ---------------------------------------------------------------------------
+# Damage Modifiers (applied to the weapon's damage dice)
+# ---------------------------------------------------------------------------
+
+## Delta applied to the number of dice in the weapon's damage roll.
+## Result is clamped to a minimum of 1 die.
+## Example: weapon does 2d6; count_modifier = -1 → 1d6.
+@export var dice_count_modifier: int = 0
+
+## Number of tier steps applied to the weapon's damage die size.
+## Uses the DICE_TIERS chain: 2→4→6→8→10→12→16→20.
+## A value of -1 on a d6 weapon yields d4. A value of +1 on a d8 yields d10.
+@export var dice_tier_modifier: int = 0
+
+# ---------------------------------------------------------------------------
+# Stat Overrides
+# ---------------------------------------------------------------------------
+
+## Percentage-point bonus (or penalty) applied to this ability's accuracy roll.
+## E.g. -20.0 means -20% accuracy. Does not affect other attacks this turn.
+@export var accuracy_modifier_percent: float = 0.0
+
+## Percentage-point bonus (or penalty) applied to this ability's reliability.
+## E.g. -50.0 means -50% reliability. Does not affect other attacks this turn.
+@export var reliability_modifier_percent: float = 0.0
+
+## Flat tile bonus (or penalty) applied to this ability's effective range.
+## E.g. -4 means the weapon's attack range is reduced by 4 for this ability.
+@export var range_modifier: int = 0
+
+# ---------------------------------------------------------------------------
+# Special Flags
+# ---------------------------------------------------------------------------
+
+## When true, this ability bypasses the Aiming keyword movement restriction.
+## (Used by Hip Shot, which explicitly ignores Aiming limitations.)
+@export var ignore_aiming_restriction: bool = false
+
+## When true, successfully using this ability does not cause the character to
+## stand up from a crouch or become revealed (used by Peek Shot).
+@export var prevents_stand_up: bool = false
+
+# ---------------------------------------------------------------------------
 # Phase Helpers
 # ---------------------------------------------------------------------------
 
@@ -59,3 +130,27 @@ func is_main_ability() -> bool:
 ## Returns true if this ability can be used during the Ending phase.
 func is_ending_ability() -> bool:
 	return (phases & PHASE_ENDING) != 0
+
+# ---------------------------------------------------------------------------
+# Damage Modifier Helpers
+# ---------------------------------------------------------------------------
+
+## Returns the effective die size after applying dice_tier_modifier to base_sides.
+## Clamps within the DICE_TIERS chain.
+static func apply_dice_tier_modifier(base_sides: int, tier_delta: int) -> int:
+	if tier_delta == 0:
+		return base_sides
+	var idx: int = DICE_TIERS.find(base_sides)
+	if idx == -1:
+		# Snap to nearest tier below the given value.
+		idx = 0
+		for i in DICE_TIERS.size():
+			if DICE_TIERS[i] <= base_sides:
+				idx = i
+	idx = clampi(idx + tier_delta, 0, DICE_TIERS.size() - 1)
+	return DICE_TIERS[idx]
+
+## Returns the effective dice count after applying dice_count_modifier.
+## Minimum result is 1.
+static func apply_dice_count_modifier(base_count: int, count_delta: int) -> int:
+	return maxi(1, base_count + count_delta)

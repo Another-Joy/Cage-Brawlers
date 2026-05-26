@@ -113,6 +113,10 @@ func _begin_next_turn() -> void:
 		_start_new_round()
 		return
 
+	# Reset per-turn combat state for the incoming active character.
+	_active_character.moved_this_turn = false
+	_tick_cooldowns(_active_character)
+
 	_current_phase = ActionPhase.BEGINNING
 	emit_signal("turn_started", _active_character, _current_phase)
 
@@ -149,6 +153,7 @@ func process_move_action(character: CharacterData, destination: Vector3i) -> boo
 
 	# Apply movement.
 	character.grid_position = destination
+	character.moved_this_turn = true
 	# After movement, enter PENDING_ROTATION sub-state.
 	_current_phase = ActionPhase.PENDING_ROTATION
 	emit_signal("facing_selection_required", character)
@@ -200,6 +205,16 @@ func process_attack_action(
 	if weapon == null:
 		dummy_result.rejection_reason = "No weapon equipped."
 		return dummy_result
+
+	# Enforce the Aiming keyword: weapon cannot be fired after moving unless
+	# the triggering ability explicitly ignores this restriction.
+	if weapon.requires_aiming() and attacker.moved_this_turn:
+		var ignore_aiming: bool = false
+		if skill_or_ability != null and skill_or_ability is AbilityData:
+			ignore_aiming = (skill_or_ability as AbilityData).ignore_aiming_restriction
+		if not ignore_aiming:
+			dummy_result.rejection_reason = "Aiming weapon cannot be fired after moving."
+			return dummy_result
 
 	var result: AttackResolver.AttackResult
 	if attacker.is_dual_wielding():
@@ -363,6 +378,24 @@ func process_ability(
 	if not ability.is_usable_in_phase(phase_index):
 		return false
 
+	# Cooldown check: ability must not be on cooldown.
+	if character.ability_cooldowns.get(ability.entry_id, 0) > 0:
+		return false
+
+	# Weapon requirement check (OR: any matching type satisfies the requirement).
+	if ability.weapon_requirements.size() > 0:
+		var equipped: WeaponData = character.main_hand_slot
+		if equipped == null:
+			return false
+		var type_name: String = equipped.get_weapon_type_name()
+		var matched: bool = false
+		for req in ability.weapon_requirements:
+			if req.to_lower() == type_name:
+				matched = true
+				break
+		if not matched:
+			return false
+
 	# Condition check: all AbilityConditions must pass.
 	if not _check_ability_conditions(character, ability, target):
 		return false
@@ -370,6 +403,10 @@ func process_ability(
 	# Execute each action in order.
 	for action in ability.actions:
 		_execute_ability_action(character, action, target)
+
+	# Apply cooldown if this ability has one.
+	if ability.cooldown_turns > 0:
+		character.ability_cooldowns[ability.entry_id] = ability.cooldown_turns
 
 	return true
 
@@ -421,6 +458,12 @@ func _evaluate_ability_condition(
 				return false
 			var dist: int = _manhattan_distance(character.grid_position, _target.grid_position)
 			return dist <= character.main_hand_slot.attack_range
+		AbilityCondition.ConditionType.WEAPON_TYPE_EQUIPPED:
+			if character.main_hand_slot == null:
+				return false
+			return character.main_hand_slot.get_weapon_type_name() == condition.string_param.to_lower()
+		AbilityCondition.ConditionType.NOT_MOVED_THIS_TURN:
+			return not character.moved_this_turn
 	return true
 
 ## Executes a single AbilityAction for a character.
@@ -475,3 +518,15 @@ func _resolve_action_target(
 ## Simple Manhattan distance helper (ignores z/floor for range checks).
 func _manhattan_distance(a: Vector3i, b: Vector3i) -> int:
 	return abs(a.x - b.x) + abs(a.y - b.y)
+
+## Decrements all active ability cooldowns for the given character by 1.
+## Called at the start of the character's turn so that a cooldown of 2 means
+## "unavailable the next turn, available the turn after".
+func _tick_cooldowns(character: CharacterData) -> void:
+	var keys_to_remove: Array = []
+	for key in character.ability_cooldowns:
+		character.ability_cooldowns[key] -= 1
+		if character.ability_cooldowns[key] <= 0:
+			keys_to_remove.append(key)
+	for key in keys_to_remove:
+		character.ability_cooldowns.erase(key)

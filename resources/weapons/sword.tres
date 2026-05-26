@@ -9,6 +9,7 @@ item_name = "Sword"
 description = "A reliable one-handed blade."
 weight = 1.5
 damage_type = 0
+weapon_type = 0
 damage_dice_count = 1
 damage_dice_sides = 6
 attack_range = 1

@@ -16,11 +16,14 @@ enum StateFlag {
 }
 
 enum CharacterClass {
-	WARRIOR,
+	WARRIOR,    ## Legacy value — kept for backward compatibility with saved .tres files.
 	RANGER,
 	MAGE,
 	ROGUE,
 	CLERIC,
+	FIGHTER,    ## Melee/Tank damage class (Str primary, Dex/Con secondary).
+	MARKSMAN,   ## Ranged precision class (Int primary, Wis secondary).
+	BRAWLER,    ## Heavy tank class (Con primary, Str secondary).
 }
 
 # ---------------------------------------------------------------------------
@@ -86,6 +89,11 @@ var grid_position: Vector3i = Vector3i.ZERO
 var facing_direction: int = 0
 ## Whether the character is currently crouched behind a barricade.
 var is_crouched: bool = false
+## Whether the character has moved during the current turn's Beginning phase.
+## Set to true by CombatManager when a move action succeeds.
+## Cleared at the start of each of this character's turns.
+## Used to enforce the Aiming keyword restriction and NOT_MOVED_THIS_TURN conditions.
+var moved_this_turn: bool = false
 ## Per-segment current HP. Index 0 is the leftmost (first lost) segment.
 var segment_hp: Array[float] = []
 ## Which segments have been permanently disabled (KNOCKED_DOWN segments).
@@ -93,6 +101,9 @@ var segment_disabled: Array[bool] = []
 ## The original class-specific percentage split used at initialisation.
 ## Stored so that full_heal() and get_current_max_hp() can restore correctly.
 var _segment_percentages: Array[float] = []
+## Tracks remaining cooldown (in turns) for each ability by entry_id.
+## Managed by CombatManager: decremented at turn end, set on ability use.
+var ability_cooldowns: Dictionary = {}
 
 # ---------------------------------------------------------------------------
 # Constants (override per class via ClassDefinitions utility)

@@ -1,0 +1,36 @@
+[gd_resource type="Resource" script_class="SkillData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/SkillData.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/data/SkillCondition.gd" id="3"]
+[ext_resource type="Script" path="res://scripts/data/SkillEffect.gd" id="4"]
+[ext_resource type="Script" path="res://scripts/data/DiceValue.gd" id="5"]
+
+[sub_resource type="Resource" id="trigger_magical"]
+script = ExtResource("3")
+major = 2
+minor = 8
+
+[sub_resource type="Resource" id="trigger_ability"]
+script = ExtResource("3")
+major = 2
+minor = 13
+
+[sub_resource type="Resource" id="dice"]
+script = ExtResource("5")
+count = 1
+sides = 4
+
+[sub_resource type="Resource" id="effect"]
+script = ExtResource("4")
+effect_type = 0
+target = 2
+value_type = 1
+dice = SubResource("dice")
+
+[resource]
+script = ExtResource("1")
+entry_id = "crypt_candle_bonus"
+entry_name = "Crypt Candle: Dark Flicker"
+description = "Whenever you deal Magical or Ability damage, deal an additional 1d4. (Activates twice if triggered by a Magic Ability.)"
+triggers = [SubResource("trigger_magical"), SubResource("trigger_ability")]
+effects = [SubResource("effect")]

@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="WeaponData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/WeaponData.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+item_id = "longsword"
+item_name = "Longsword"
+description = "A versatile blade that can be wielded one- or two-handed."
+weight = 2.0
+keywords = ["Versatile"]
+damage_type = 0
+weapon_type = 0
+damage_dice_count = 1
+damage_dice_sides = 8
+attack_range = 1
+ammo_type = 0
+versatile_two_handed_count = 1
+versatile_two_handed_sides = 10

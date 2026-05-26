@@ -1,0 +1,26 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/AbilityData.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/data/AbilityAction.gd" id="2"]
+[ext_resource type="Script" path="res://scripts/data/DiceValue.gd" id="3"]
+
+[sub_resource type="Resource" id="bonus_dice"]
+script = ExtResource("3")
+count = 1
+sides = 4
+
+[sub_resource type="Resource" id="action_attack"]
+script = ExtResource("2")
+action_type = 0
+target_type = 2
+bonus_dice = SubResource("bonus_dice")
+
+[resource]
+script = ExtResource("1")
+entry_id = "achiles_bane"
+entry_name = "Achile's Bane"
+description = "A precise shot to the target's leg that hampers their movement. 0d-1 damage modifier, +1d4 bonus damage. Applies Slowed (33%) to the target."
+phases = 2
+weapon_requirements = Array[String](["bow", "crossbow"])
+dice_tier_modifier = -1
+actions = [SubResource("action_attack")]

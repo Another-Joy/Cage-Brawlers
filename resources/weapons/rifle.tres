@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="WeaponData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/WeaponData.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+item_id = "rifle"
+item_name = "Rifle"
+description = "A high-powered firearm. Cannot be fired after moving. Ignores accuracy fall-off."
+weight = 4.0
+keywords = ["Two-Handed", "Magazine", "Aiming"]
+damage_type = 1
+weapon_type = 5
+damage_dice_count = 1
+damage_dice_sides = 10
+attack_range = 14
+ammo_type = 1
+magazine_capacity = 5
