@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="ArmorData" load_steps=2 format=3 uid="uid://d4iqqqivbidcv"]
+
+[ext_resource type="Script" uid="uid://deqg5ptr388ad" path="res://scripts/data/ArmorData.gd" id="1_6ajxf"]
+
+[resource]
+script = ExtResource("1_6ajxf")
+armor_type = 2
+armor_value = 14
+evasion_modifier = -30
+movement_modifier = -1
+ammo_slots_capacity = 0
+allows_arrows = false
+potion_slots = 1
+item_id = "metal_ring"
+item_name = "Ring Mail"
+equipment_type = 3
+weight = 14.0
+metadata/_custom_type_script = "uid://deqg5ptr388ad"

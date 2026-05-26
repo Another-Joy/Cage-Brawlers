@@ -1,12 +1,10 @@
-[gd_resource type="Resource" script_class="ClassData" load_steps=3 format=3]
+[gd_resource type="Resource" script_class="ClassData" load_steps=4 format=3 uid="uid://b7jdwc7cjxcqh"]
 
-[ext_resource type="Script" path="res://scripts/data/ClassData.gd" id="1"]
-[ext_resource type="Script" path="res://scripts/data/DiceValue.gd" id="2"]
+[ext_resource type="Script" uid="uid://c26wpl14qe7ab" path="res://scripts/data/ClassData.gd" id="1"]
+[ext_resource type="Script" uid="uid://b0pqes2efi20q" path="res://scripts/data/DiceValue.gd" id="2"]
 
 [sub_resource type="Resource" id="hit_dice"]
 script = ExtResource("2")
-count = 1
-sides = 6
 
 [resource]
 script = ExtResource("1")
@@ -15,7 +13,5 @@ display_name = "Mage"
 primary_stat = 4
 secondary_stat = 3
 hit_dice = SubResource("hit_dice")
-level_health_modifier = 0
 main_damage_type = 2
-health_segment_percentages = PackedFloat32Array(0.4, 0.35, 0.25)
-weapon_categories = ["staff", "wand", "orb"]
+weapon_categories = Array[String](["staff", "wand", "orb"])

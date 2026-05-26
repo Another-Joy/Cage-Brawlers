@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="ArmorData" load_steps=2 format=3 uid="uid://bcof5spwdkyn3"]
+
+[ext_resource type="Script" uid="uid://deqg5ptr388ad" path="res://scripts/data/ArmorData.gd" id="1_ahcj5"]
+
+[resource]
+script = ExtResource("1_ahcj5")
+armor_value = 5
+evasion_modifier = -10
+ammo_slots_capacity = 30
+item_id = "leather_studded"
+item_name = "Studded Leather"
+equipment_type = 3
+weight = 8.0
+metadata/_custom_type_script = "uid://deqg5ptr388ad"
