@@ -83,10 +83,9 @@ enum StatType {
 # Weapon Categories (for Weapon Skill Tree generation)
 # ---------------------------------------------------------------------------
 
-## List of weapon type names this class can use for its weapon skill tree.
-## Values should match WeaponData.WeaponType key names in lowercase
-## (e.g. ["sword", "axe"] for Fighters).
-@export var weapon_categories: Array[String] = []
+## List of weapon types this class can use for its weapon skill tree.
+## Values should be WeaponType constants (e.g. [WeaponType.SWORD, WeaponType.AXE]).
+@export var weapon_categories: Array[WeaponType.Type] = []
 
 # ---------------------------------------------------------------------------
 # Helpers

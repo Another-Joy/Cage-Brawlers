@@ -27,9 +27,9 @@ enum AmmoType {
 # ---------------------------------------------------------------------------
 
 @export var damage_type: DamageType = DamageType.PHYSICAL
-## Weapon type identifier. Use WeaponType constants (e.g. WeaponType.SWORD).
+## Weapon type identifier. Use WeaponType.Type constants (e.g. WeaponType.Type.SWORD).
 ## The WeaponType class is globally accessible from any script.
-@export var weapon_type: int = WeaponType.SWORD
+@export var weapon_type: int = WeaponType.Type.SWORD
 
 ## Number of dice to roll for damage (e.g. 2 for 2d6).
 @export var damage_dice_count: int = 1

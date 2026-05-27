@@ -1,21 +1,22 @@
-[gd_resource type="Resource" script_class="ClassData" load_steps=4 format=3 uid="uid://d2vjjbosrcw41"]
+[gd_resource type="Resource" script_class="ClassData" load_steps=4 format=3 uid="uid://btm2njihrnpr6"]
 
-[ext_resource type="Script" uid="uid://c26wpl14qe7ab" path="res://scripts/data/ClassData.gd" id="1"]
-[ext_resource type="Script" uid="uid://b0pqes2efi20q" path="res://scripts/data/DiceValue.gd" id="2"]
+[ext_resource type="Script" uid="uid://b0pqes2efi20q" path="res://scripts/data/DiceValue.gd" id="1_fa6up"]
+[ext_resource type="Script" uid="uid://c26wpl14qe7ab" path="res://scripts/data/ClassData.gd" id="1_rndsq"]
 
-[sub_resource type="Resource" id="hit_dice"]
-script = ExtResource("2")
+[sub_resource type="Resource" id="Resource_y8o0s"]
+script = ExtResource("1_fa6up")
 count = 2
-sides = 6
+metadata/_custom_type_script = "uid://b0pqes2efi20q"
 
 [resource]
-script = ExtResource("1")
+script = ExtResource("1_rndsq")
 class_id = "cleric"
 display_name = "Cleric"
-primary_stats = Array[ClassData.StatType]([3, 4])
-secondary_stats = Array[ClassData.StatType]([])
-hit_dice = SubResource("hit_dice")
+primary_stats = Array[int]([3])
+secondary_stats = Array[int]([4])
+hit_dice = SubResource("Resource_y8o0s")
 level_health_modifier = 1
 main_damage_type = 2
-health_segment_percentages = Array[float]([0.34, 0.33, 0.33])
-weapon_categories = Array[String](["tome", "ball"])
+health_segment_percentages = Array[float]([0.4, 0.4, 0.2])
+weapon_categories = Array[int]([6])
+metadata/_custom_type_script = "uid://c26wpl14qe7ab"

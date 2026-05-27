@@ -6,18 +6,17 @@
 [sub_resource type="Resource" id="Resource_dxal0"]
 script = ExtResource("1_e580d")
 count = 3
-sides = 6
 reliability = 0.2
+metadata/_custom_type_script = "uid://b0pqes2efi20q"
 
 [resource]
 script = ExtResource("1_k2608")
 class_id = "fighter"
 display_name = "Fighter"
-primary_stats = Array[ClassData.StatType]([0, 1])
-secondary_stats = Array[ClassData.StatType]([2])
+primary_stats = Array[int]([0])
+secondary_stats = Array[int]([1, 2])
 hit_dice = SubResource("Resource_dxal0")
 level_health_modifier = 2
-main_damage_type = 0
-health_segment_percentages = Array[float]([0.5, 0.25, 0.25])
-weapon_categories = Array[String](["sword", "axe"])
+health_segment_percentages = Array[float]([0.2, 0.4, 0.4])
+weapon_categories = Array[int]([0, 1, 2])
 metadata/_custom_type_script = "uid://c26wpl14qe7ab"

@@ -45,26 +45,26 @@ static func get_segment_percentages(char_class: CharacterData.CharacterClass) ->
 # Allowed Weapon Categories per Class (for Weapon Skill Tree generation)
 # ---------------------------------------------------------------------------
 
-static func get_weapon_categories(char_class: CharacterData.CharacterClass) -> Array[String]:
+static func get_weapon_categories(char_class: CharacterData.CharacterClass) -> Array[WeaponType.Type]:
 	match char_class:
 		CharacterData.CharacterClass.WARRIOR:
-			return ["sword", "axe", "mace"]
+			return [WeaponType.Type.SWORD, WeaponType.Type.AXE]
 		CharacterData.CharacterClass.RANGER:
-			return ["bow", "crossbow", "thrown"]
+			return [WeaponType.Type.BOW, WeaponType.Type.CROSSBOW]
 		CharacterData.CharacterClass.MAGE:
-			return ["staff", "wand", "orb"]
+			return [WeaponType.Type.TOME, WeaponType.Type.BALL]
 		CharacterData.CharacterClass.ROGUE:
-			return ["dagger", "shortsword", "thrown"]
+			return [WeaponType.Type.DAGGER]
 		CharacterData.CharacterClass.CLERIC:
-			return ["mace", "staff", "shield"]
+			return [WeaponType.Type.TOME]
 		CharacterData.CharacterClass.FIGHTER:
-			return ["sword", "axe"]
+			return [WeaponType.Type.SWORD, WeaponType.Type.AXE]
 		CharacterData.CharacterClass.MARKSMAN:
-			return ["rifle", "crossbow"]
+			return [WeaponType.Type.RIFLE, WeaponType.Type.CROSSBOW]
 		CharacterData.CharacterClass.BRAWLER:
-			return ["axe", "sword"]
+			return [WeaponType.Type.AXE, WeaponType.Type.SWORD]
 		_:
-			return ["sword"]
+			return [WeaponType.Type.SWORD]
 
 # ---------------------------------------------------------------------------
 # Convenience: Initialise a Character's health segments from their class.
@@ -83,7 +83,7 @@ static func initialise_character_health(char_data: CharacterData) -> void:
 # Convenience: Get weapon categories, preferring class_data when available.
 # ---------------------------------------------------------------------------
 
-static func get_weapon_categories_for_character(char_data: CharacterData) -> Array[String]:
+static func get_weapon_categories_for_character(char_data: CharacterData) -> Array[WeaponType.Type]:
 	if char_data.class_data != null and not char_data.class_data.weapon_categories.is_empty():
 		return char_data.class_data.weapon_categories
 	return get_weapon_categories(char_data.character_class)

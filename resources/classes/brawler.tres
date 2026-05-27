@@ -1,22 +1,22 @@
-[gd_resource type="Resource" script_class="ClassData" format=3]
+[gd_resource type="Resource" script_class="ClassData" load_steps=4 format=3 uid="uid://dtb68eglsxoyc"]
 
-[ext_resource type="Script" path="res://scripts/data/ClassData.gd" id="1"]
-[ext_resource type="Script" path="res://scripts/data/DiceValue.gd" id="2"]
+[ext_resource type="Script" uid="uid://c26wpl14qe7ab" path="res://scripts/data/ClassData.gd" id="1"]
+[ext_resource type="Script" uid="uid://b0pqes2efi20q" path="res://scripts/data/DiceValue.gd" id="2"]
 
-[sub_resource type="Resource" id="hit_dice"]
+[sub_resource type="Resource" id="Resource_v3crr"]
 script = ExtResource("2")
 count = 4
-sides = 6
 reliability = 0.5
+metadata/_custom_type_script = "uid://b0pqes2efi20q"
 
 [resource]
 script = ExtResource("1")
 class_id = "brawler"
 display_name = "Brawler"
-primary_stats = Array[ClassData.StatType]([2, 0])
-secondary_stats = Array[ClassData.StatType]([])
-hit_dice = SubResource("hit_dice")
+primary_stats = Array[int]([2])
+secondary_stats = Array[int]([0])
+hit_dice = SubResource("Resource_v3crr")
 level_health_modifier = 3
-main_damage_type = 0
-health_segment_percentages = Array[float]([0.5, 0.3, 0.2])
-weapon_categories = Array[String](["axe", "sword"])
+health_segment_percentages = Array[float]([0.2, 0.3, 0.5])
+weapon_categories = Array[int]([1, 0])
+metadata/_custom_type_script = "uid://c26wpl14qe7ab"

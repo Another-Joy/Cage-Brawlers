@@ -1,12 +1,12 @@
 ## WeaponType.gd
 ## Globally-accessible weapon type constants.
-## All scripts can reference e.g. WeaponType.SWORD, WeaponType.AXE without
+## All scripts can reference e.g. WeaponType.Type.SWORD, WeaponType.Type.AXE without
 ## needing to access them through WeaponData.
 class_name WeaponType
 extends RefCounted
 
 ## Weapon type identifiers. Values match the integer stored in WeaponData.weapon_type.
-enum {
+enum Type {
 	SWORD    = 0,  ## One- or two-handed bladed weapon (longsword, greatsword…)
 	AXE      = 1,  ## Axe-type weapon (handaxe, battleaxe, greataxe…)
 	DAGGER   = 2,  ## Light finesse blade (dagger)
