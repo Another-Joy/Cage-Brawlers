@@ -1,8 +1,8 @@
 ## PathfindingManager.gd
 ## Wraps Godot's AStar3D to provide movement pathfinding on the server-side
 ## 3D tile grid. Respects boundary rules: walls block connections entirely,
-## barricades remove standard connections (unless vault is enabled), and
-## ladder edges gain a +1 movement cost penalty.
+## barricades increase crossing cost by 1 (vault characters pay no extra cost),
+## and ladder edges gain a +1 movement cost penalty.
 class_name PathfindingManager
 extends RefCounted
 
@@ -12,6 +12,7 @@ extends RefCounted
 
 const BASE_MOVEMENT_COST: float = 1.0
 const LADDER_EXTRA_COST: float = 1.0
+const BARRICADE_EXTRA_COST: float = 1.0
 
 # ---------------------------------------------------------------------------
 # State
@@ -64,8 +65,10 @@ func build_from_map(map_data: MapData) -> void:
 				continue
 
 			if boundary.has_barricade:
-				# Barricade: skip the standard connection.
-				# Vault connections are added at runtime per-character.
+				# Barricade: always passable but costs +1 for non-vault characters.
+				# The AStar3D graph connects them at base cost; the extra cost is
+				# applied in get_path_cost() and get_reachable_tiles() per character.
+				_astar.connect_points(tile_id, neighbour_id, true)
 				continue
 
 			if boundary.has_ladder:
@@ -84,22 +87,15 @@ func build_from_map(map_data: MapData) -> void:
 
 ## Returns the shortest movement path from start_tile to end_tile as an ordered
 ## Array[Vector3i]. Returns an empty array if no path exists.
-## If can_vault is true, barricade edges are temporarily bridged for this query.
+## can_vault is accepted for signature compatibility but does not change routing
+## (barricades are always connected; vault only reduces their crossing cost).
 func find_path(start_tile: Vector3i, end_tile: Vector3i, can_vault: bool = false) -> Array[Vector3i]:
 	if not _tile_to_id.has(start_tile) or not _tile_to_id.has(end_tile):
 		return []
 
-	var temp_connections: Array = []  # Track vault connections to clean up.
-
-	if can_vault:
-		temp_connections = _add_vault_connections()
-
 	var start_id: int = _tile_to_id[start_tile]
 	var end_id: int = _tile_to_id[end_tile]
 	var path_positions: PackedVector3Array = _astar.get_point_path(start_id, end_id)
-
-	if can_vault:
-		_remove_vault_connections(temp_connections)
 
 	if path_positions.is_empty():
 		return []
@@ -109,9 +105,10 @@ func find_path(start_tile: Vector3i, end_tile: Vector3i, can_vault: bool = false
 		path_tiles.append(Vector3i(int(pos.x), int(pos.y), int(pos.z)))
 	return path_tiles
 
-## Returns the movement cost (number of steps) to traverse a given path,
-## accounting for the standard cost of 1 per tile plus extra ladder costs.
-func get_path_cost(path: Array[Vector3i]) -> int:
+## Returns the movement cost to traverse a given path.
+## Barricade crossings cost +1 for non-vault characters; vault characters pay 0 extra.
+## Ladder crossings always cost +1.
+func get_path_cost(path: Array[Vector3i], can_vault: bool = false) -> int:
 	if path.size() <= 1:
 		return 0
 	var total_cost: int = 0
@@ -119,20 +116,19 @@ func get_path_cost(path: Array[Vector3i]) -> int:
 		var boundary: BoundaryData = _map_data.get_boundary(path[i - 1], path[i])
 		if boundary != null and boundary.has_ladder:
 			total_cost += int(BASE_MOVEMENT_COST + LADDER_EXTRA_COST)
+		elif boundary != null and boundary.has_barricade and not can_vault:
+			total_cost += int(BASE_MOVEMENT_COST + BARRICADE_EXTRA_COST)
 		else:
 			total_cost += int(BASE_MOVEMENT_COST)
 	return total_cost
 
 ## Returns all tiles reachable within a given movement budget from start_tile.
 ## The returned dictionary maps Vector3i -> int (movement cost to reach).
+## Barricade crossings cost +1 for non-vault characters; vault characters pay 0 extra.
 func get_reachable_tiles(start_tile: Vector3i, movement_budget: int, can_vault: bool = false) -> Dictionary:
 	var reachable: Dictionary = {}
 	if not _tile_to_id.has(start_tile):
 		return reachable
-
-	var temp_connections: Array = []
-	if can_vault:
-		temp_connections = _add_vault_connections()
 
 	# BFS / Dijkstra-like expansion using AStar point IDs.
 	var frontier: Array = [[start_tile, 0]]
@@ -161,6 +157,8 @@ func get_reachable_tiles(start_tile: Vector3i, movement_budget: int, can_vault: 
 			var step_cost: int = int(BASE_MOVEMENT_COST)
 			if boundary != null and boundary.has_ladder:
 				step_cost = int(BASE_MOVEMENT_COST + LADDER_EXTRA_COST)
+			elif boundary != null and boundary.has_barricade and not can_vault:
+				step_cost = int(BASE_MOVEMENT_COST + BARRICADE_EXTRA_COST)
 
 			var new_cost: int = current_cost + step_cost
 			if new_cost <= movement_budget:
@@ -168,33 +166,4 @@ func get_reachable_tiles(start_tile: Vector3i, movement_budget: int, can_vault: 
 					reachable[neighbour] = new_cost
 					frontier.append([neighbour, new_cost])
 
-	if can_vault:
-		_remove_vault_connections(temp_connections)
-
 	return reachable
-
-# ---------------------------------------------------------------------------
-# Dynamic Connection Management (vault / barricade)
-# ---------------------------------------------------------------------------
-
-## Temporarily connects all barricade edges and returns a list of connection
-## pairs so they can be removed after the path query.
-func _add_vault_connections() -> Array:
-	var added: Array = []
-	for tile in _map_data.tiles:
-		for neighbour in _map_data.get_adjacent_tiles(tile):
-			if not _tile_to_id.has(neighbour):
-				continue
-			var boundary: BoundaryData = _map_data.get_boundary(tile, neighbour)
-			if boundary == null or not boundary.has_barricade:
-				continue
-			var tile_id: int = _tile_to_id[tile]
-			var neighbour_id: int = _tile_to_id[neighbour]
-			if not _astar.are_points_connected(tile_id, neighbour_id):
-				_astar.connect_points(tile_id, neighbour_id, true)
-				added.append([tile_id, neighbour_id])
-	return added
-
-func _remove_vault_connections(connections: Array) -> void:
-	for pair in connections:
-		_astar.disconnect_points(pair[0], pair[1], true)

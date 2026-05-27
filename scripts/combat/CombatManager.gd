@@ -120,6 +120,7 @@ func _begin_next_turn() -> void:
 
 	# Reset per-turn combat state for the incoming active character.
 	_active_character.moved_this_turn = false
+	_active_character.stood_up_this_turn = false
 
 	_current_phase = ActionPhase.BEGINNING
 	emit_signal("turn_started", _active_character, _current_phase)
@@ -138,6 +139,10 @@ func process_move_action(character: CharacterData, destination: Vector3i) -> boo
 
 	var speed: int = character.get_base_movement_speed()
 	if character.is_crouched:
+		# Crouched characters cannot move — they must stand up first.
+		return false
+	if character.stood_up_this_turn:
+		# Standing up this turn halves movement speed.
 		speed = int(ceil(speed / 2.0))
 
 	var can_vault: bool = _character_can_vault(character)
@@ -145,7 +150,7 @@ func process_move_action(character: CharacterData, destination: Vector3i) -> boo
 
 	if path.is_empty():
 		return false
-	if _pathfinding.get_path_cost(path) > speed:
+	if _pathfinding.get_path_cost(path, can_vault) > speed:
 		return false
 
 	# Reject if the destination tile is already occupied by a living character.
@@ -190,25 +195,26 @@ func process_skip_beginning(character: CharacterData) -> bool:
 	return true
 
 ## Called when the player declares a standard attack or skill in the Main phase.
+## Returns an Array[AttackResult]: one entry per attack (two for dual wield).
 func process_attack_action(
 		attacker: CharacterData,
 		target: CharacterData,
 		weapon: WeaponData = null,
-		skill_or_ability: SkillTreeEntry = null) -> AttackResolver.AttackResult:
+		skill_or_ability: SkillTreeEntry = null) -> Array:
 
 	var dummy_result: AttackResolver.AttackResult = AttackResolver.AttackResult.new()
 	if attacker != _active_character:
 		dummy_result.rejection_reason = "Not the active character."
-		return dummy_result
+		return [dummy_result]
 	if _current_phase != ActionPhase.MAIN:
 		dummy_result.rejection_reason = "Not in Main phase."
-		return dummy_result
+		return [dummy_result]
 
 	if weapon == null:
 		weapon = attacker.main_hand_slot
 	if weapon == null:
 		dummy_result.rejection_reason = "No weapon equipped."
-		return dummy_result
+		return [dummy_result]
 
 	# Enforce the Aiming keyword: weapon cannot be fired after moving unless
 	# the triggering ability explicitly ignores this restriction.
@@ -218,27 +224,24 @@ func process_attack_action(
 			ignore_aiming = (skill_or_ability as AbilityData).ignore_aiming_restriction
 		if not ignore_aiming:
 			dummy_result.rejection_reason = "Aiming weapon cannot be fired after moving."
-			return dummy_result
-
-	var result: AttackResolver.AttackResult
+			return [dummy_result]
 
 	if attacker.is_dual_wielding():
-		# Fire each weapon individually so riposte checks apply per-attack.
+		# Fire each weapon individually so hit/miss and riposte apply per-attack.
+		var results: Array = []
 		var weapons: Array = [attacker.main_hand_slot, attacker.off_hand_slot as WeaponData]
-		result = dummy_result
 		for w in weapons:
 			if w == null:
 				continue
 			var r: AttackResolver.AttackResult = _attack_resolver.resolve_attack(
 					attacker, target, w, skill_or_ability)
 			_apply_attack_result_with_riposte(r, attacker, target, w)
-			if result == dummy_result:
-				result = r
+			results.append(r)
+		return results
 	else:
-		result = _attack_resolver.resolve_attack(attacker, target, weapon, skill_or_ability)
+		var result: AttackResolver.AttackResult = _attack_resolver.resolve_attack(attacker, target, weapon, skill_or_ability)
 		_apply_attack_result_with_riposte(result, attacker, target, weapon)
-
-	return result
+		return [result]
 
 ## Called when the active character passes or performs an Ending phase action.
 func process_end_turn(character: CharacterData) -> bool:
@@ -277,13 +280,18 @@ func process_crouch_action(character: CharacterData) -> bool:
 	character.is_crouched = true
 	return true
 
-## Called during Beginning phase to stand up (free action, no phase slot consumed).
+## Stand up is a free action (no phase slot consumed).
+## The character may stand up during the Beginning phase only.
+## After standing, movement speed is halved for the remainder of this turn.
 func process_stand_up(character: CharacterData) -> bool:
 	if character != _active_character:
 		return false
 	if _current_phase != ActionPhase.BEGINNING:
 		return false
+	if not character.is_crouched:
+		return false
 	character.is_crouched = false
+	character.stood_up_this_turn = true
 	return true
 
 ## Called when a player surrenders.
@@ -451,7 +459,20 @@ func process_ability(
 		return false
 
 	# Phase check: ability must be usable in the current phase.
-	var phase_index: int = _current_phase as int
+	# ActionPhase enum values don't map 1:1 to AbilityData phase indices:
+	#   BEGINNING(0) / PENDING_ROTATION(1) → index 0 (PHASE_BEGINNING = 1)
+	#   MAIN(2)                             → index 1 (PHASE_MAIN     = 2)
+	#   ENDING(3)                           → index 2 (PHASE_ENDING   = 4)
+	var phase_index: int
+	match _current_phase:
+		ActionPhase.BEGINNING, ActionPhase.PENDING_ROTATION:
+			phase_index = 0
+		ActionPhase.MAIN:
+			phase_index = 1
+		ActionPhase.ENDING:
+			phase_index = 2
+		_:
+			return false
 	if not ability.is_usable_in_phase(phase_index):
 		return false
 

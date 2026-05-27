@@ -71,7 +71,7 @@ func start_test_match() -> void:
 		Vector3i(0, 1, 0), Vector3i(0, 4, 0), Vector3i(0, 6, 0),
 	]
 	var spawns_b: Array[Vector3i] = [
-		Vector3i(7, 1, 0), Vector3i(7, 4, 0), Vector3i(7, 6, 0),
+		Vector3i(11, 1, 0), Vector3i(11, 4, 0), Vector3i(11, 6, 0),
 	]
 	for i in min(teams["player_a"].size(), spawns_a.size()):
 		teams["player_a"][i].grid_position = spawns_a[i]
@@ -157,18 +157,17 @@ func handle_action(peer_id: int, action: Dictionary) -> void:
 			if target == null:
 				emit_signal("event_logged", "WARN: unknown target_id '%s'" % target_id)
 				return
-			var result: AttackResolver.AttackResult = combat.process_attack_action(char_data, target)
-			if not result.valid:
-				log_msg = "%s → %s: REJECTED (%s)" % [
-					char_data.character_name, target.character_name, result.rejection_reason]
-			elif result.hit:
-				log_msg = "%s → %s: HIT! %.0f dmg%s%s" % [
-					char_data.character_name, target.character_name, result.damage_dealt,
-					" [cover]" if result.cover_penalty_applied else "",
-					" [ammo]" if result.ammo_consumed else ""]
-			else:
-				log_msg = "%s → %s: MISS." % [char_data.character_name, target.character_name]
-			if result.valid:
+			var results: Array = combat.process_attack_action(char_data, target)
+			var any_valid: bool = false
+			for res in results:
+				var r: AttackResolver.AttackResult = res as AttackResolver.AttackResult
+				if not r.valid:
+					emit_signal("event_logged", "%s → %s: REJECTED (%s)" % [
+						char_data.character_name, target.character_name, r.rejection_reason])
+				else:
+					any_valid = true
+					emit_signal("event_logged", _format_attack_log(char_data, target, r))
+			if any_valid:
 				combat.advance_to_ending_phase()
 
 		"skip_main":
@@ -219,6 +218,39 @@ func handle_action(peer_id: int, action: Dictionary) -> void:
 	if log_msg:
 		emit_signal("event_logged", log_msg)
 	_broadcast_state()
+
+# ---------------------------------------------------------------------------
+# Attack log formatting
+# ---------------------------------------------------------------------------
+
+## Formats a verbose debug log line for one AttackResult.
+## Example: "Aria → Bob: Hit (80 base +2 acc -0 cover -3 evasion = 79%, roll 45)
+##           9 dmg (2d6>7 +2 stat)"
+func _format_attack_log(attacker: CharacterData, target: CharacterData, r: AttackResolver.AttackResult) -> String:
+	var weapon_label: String = r.weapon_name if r.weapon_name != "" else "weapon"
+	if not r.hit:
+		return "%s [%s] → %s: MISS (%d base +%d acc %d cover -%d evasion = %d%%, roll %d)" % [
+			attacker.character_name, weapon_label, target.character_name,
+			r.acc_base, r.acc_stat_bonus, r.acc_ability_mod, r.acc_evasion,
+			r.final_accuracy, r.roll_d100]
+
+	var hit_type: String = "CRIT!" if r.crit else "Hit"
+	var dice_str: String = "%dd%d>%.0f" % [r.dmg_dice_count, r.dmg_dice_sides, r.dmg_raw_roll]
+	var stat_str: String = ("+%d stat" % r.dmg_stat_bonus) if r.dmg_stat_bonus >= 0 else ("%d stat" % r.dmg_stat_bonus)
+	var bonus_str: String = ""
+	if r.dmg_bonus_dice != 0.0:
+		bonus_str = " +bonus>%.0f" % r.dmg_bonus_dice
+	var extras: String = ""
+	if r.cover_penalty_applied:
+		extras += " [cover]"
+	if r.ammo_consumed:
+		extras += " [ammo]"
+	return "%s [%s] → %s: %s (%d base +%d acc %d cover -%d evasion = %d%%, roll %d)\n  %.0f dmg (%s %s%s)%s" % [
+		attacker.character_name, weapon_label, target.character_name,
+		hit_type,
+		r.acc_base, r.acc_stat_bonus, r.acc_ability_mod, r.acc_evasion,
+		r.final_accuracy, r.roll_d100,
+		r.damage_dealt, dice_str, stat_str, bonus_str, extras]
 
 # ---------------------------------------------------------------------------
 # State serialization & broadcast
@@ -321,6 +353,7 @@ func _serialize_char(char_data: CharacterData, player_id: String) -> Dictionary:
 					"cooldown_turns": ab.cooldown_turns,
 					"cooldown_remaining": char_data.ability_cooldowns.get(ab.entry_id, 0),
 					"needs_target": _ability_needs_target(ab),
+					"target_count": ab.target_count,
 				})
 
 	return {
@@ -335,6 +368,8 @@ func _serialize_char(char_data: CharacterData, player_id: String) -> Dictionary:
 		"hp_segments":  seg_hp,
 		"hp_seg_max":   seg_max,
 		"hp_disabled":  seg_disabled,
+		"armor_hp":     char_data.armor_hp,
+		"armor_max_hp": char_data.armor_max_hp,
 		"equipment":    equip,
 		"abilities":    abilities_out,
 		"active_buffs": char_data.active_buffs.keys(),
@@ -395,19 +430,31 @@ func _on_match_ended(winner_player_id: String, _results: Dictionary) -> void:
 
 func _build_test_map() -> void:
 	_map_data = MapData.new()
-	# 8×8 flat grid at z = 0.
-	for x in range(8):
+	# 12×8 flat grid at z = 0.
+	for x in range(12):
 		for y in range(8):
 			_map_data.tiles.append(Vector3i(x, y, 0))
 
-	# Vertical wall: between column 2 and column 3, rows 0–3.
-	for y in range(4):
+	# Left vertical wall: between column 2 and column 3, rows 1–5.
+	for y in range(1, 6):
 		var bd: BoundaryData = BoundaryData.new()
 		bd.has_wall = true
 		_map_data.set_boundary(Vector3i(2, y, 0), Vector3i(3, y, 0), bd)
 
-	# Horizontal barricade: between row 3 and row 4, columns 3–6.
-	for x in range(3, 7):
+	# Right vertical wall: between column 8 and column 9, rows 1–5 (mirror).
+	for y in range(1, 6):
+		var bd: BoundaryData = BoundaryData.new()
+		bd.has_wall = true
+		_map_data.set_boundary(Vector3i(8, y, 0), Vector3i(9, y, 0), bd)
+
+	# Left horizontal barricade: between row 3 and row 4, columns 3–5.
+	for x in range(3, 6):
+		var bd: BoundaryData = BoundaryData.new()
+		bd.has_barricade = true
+		_map_data.set_boundary(Vector3i(x, 3, 0), Vector3i(x, 4, 0), bd)
+
+	# Right horizontal barricade: between row 3 and row 4, columns 6–8 (mirror).
+	for x in range(6, 9):
 		var bd: BoundaryData = BoundaryData.new()
 		bd.has_barricade = true
 		_map_data.set_boundary(Vector3i(x, 3, 0), Vector3i(x, 4, 0), bd)
@@ -449,6 +496,7 @@ func _load_roster(folder_path: String) -> Array[CharacterData]:
 			continue
 		var char_data := base_data.duplicate(false) as CharacterData
 		ClassDefinitions.initialise_character_health(char_data)
+		char_data.initialise_armor_hp()
 		team.append(char_data)
 
 	return team

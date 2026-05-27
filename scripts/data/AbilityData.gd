@@ -109,6 +109,11 @@ const PHASE_ENDING: int = 4
 ## stand up from a crouch or become revealed (used by Peek Shot).
 @export var prevents_stand_up: bool = false
 
+## Number of external targets this ability requires.
+## 1 = single target (default). 0 = no external target (self-only).
+## Values above 1 allow multi-target selection in the UI.
+@export var target_count: int = 1
+
 # ---------------------------------------------------------------------------
 # Phase Helpers
 # ---------------------------------------------------------------------------

@@ -76,6 +76,22 @@ class AttackResult:
 	var ammo_consumed: bool = false
 	## True when a riposte stance intercepted this attack (hit cancelled).
 	var riposte_triggered: bool = false
+	## Name of the weapon used (for dual-wield log disambiguation).
+	var weapon_name: String = ""
+	# ── Debug breakdown fields ──────────────────────────────────────────────
+	var roll_d100: int = 0
+	var acc_base: int = 0
+	var acc_stat_bonus: int = 0
+	var acc_ability_mod: int = 0
+	var acc_cover_mod: int = 0
+	var acc_evasion: int = 0
+	var dmg_dice_count: int = 0
+	var dmg_dice_sides: int = 0
+	var dmg_raw_roll: float = 0.0
+	var dmg_stat_bonus: int = 0
+	var dmg_bonus_dice: float = 0.0
+	## Damage absorbed by the target's armor HP (for log only; deducted in apply_damage).
+	var armor_absorbed: float = 0.0
 
 # ---------------------------------------------------------------------------
 # Main Entry Point
@@ -95,6 +111,7 @@ func resolve_attack(
 		action: AbilityAction = null) -> AttackResult:
 
 	var result: AttackResult = AttackResult.new()
+	result.weapon_name = weapon.item_name
 
 	match weapon.damage_type:
 		WeaponData.DamageType.PHYSICAL:
@@ -122,6 +139,18 @@ func _resolve_physical(
 	# Height equity check: attacker and target must be on the same floor.
 	if attacker.grid_position.z != target.grid_position.z:
 		result.rejection_reason = "Height mismatch: melee requires same floor level."
+		return result
+
+	# Range check: Chebyshev distance must not exceed the weapon's attack range,
+	# adjusted by any ability range modifier.
+	var effective_range: int = weapon.attack_range
+	if skill_or_ability is AbilityData:
+		effective_range += (skill_or_ability as AbilityData).range_modifier
+	var dist: int = maxi(
+			abs(attacker.grid_position.x - target.grid_position.x),
+			abs(attacker.grid_position.y - target.grid_position.y))
+	if dist > effective_range:
+		result.rejection_reason = "Target out of melee range (%d > %d)." % [dist, effective_range]
 		return result
 
 	# Boundary obstruction check: wall between attacker and target blocks melee.
@@ -159,6 +188,18 @@ func _resolve_ranged(
 	if attacker.is_crouched:
 		attacker.is_crouched = false
 
+	# Range check: Chebyshev distance must not exceed the weapon's attack range,
+	# adjusted by any ability range modifier.
+	var effective_range: int = weapon.attack_range
+	if skill_or_ability is AbilityData:
+		effective_range += (skill_or_ability as AbilityData).range_modifier
+	var dist: int = maxi(
+			abs(attacker.grid_position.x - target.grid_position.x),
+			abs(attacker.grid_position.y - target.grid_position.y))
+	if dist > effective_range:
+		result.rejection_reason = "Target out of ranged range (%d > %d)." % [dist, effective_range]
+		return result
+
 	# Ranged sight check.
 	var los_result: Dictionary = _los_manager.check_ranged_target(attacker, target, _map_data)
 	if not los_result["valid"]:
@@ -189,6 +230,18 @@ func _resolve_magical(
 	# Force stand-up if the attacker is crouched.
 	if attacker.is_crouched:
 		attacker.is_crouched = false
+
+	# Range check: Chebyshev distance must not exceed the weapon's attack range,
+	# adjusted by any ability range modifier.
+	var effective_range: int = weapon.attack_range
+	if skill_or_ability is AbilityData:
+		effective_range += (skill_or_ability as AbilityData).range_modifier
+	var dist: int = maxi(
+			abs(attacker.grid_position.x - target.grid_position.x),
+			abs(attacker.grid_position.y - target.grid_position.y))
+	if dist > effective_range:
+		result.rejection_reason = "Target out of magical range (%d > %d)." % [dist, effective_range]
+		return result
 
 	# Check if the spell has the "Direct" keyword → treat as Ranged rules.
 	var has_direct: bool = (weapon.has_keyword("Direct") or (skill_or_ability != null and skill_or_ability.has_keyword("Direct")))
@@ -249,8 +302,16 @@ func _roll_accuracy_and_damage(
 			- target_evasion)
 	result.final_accuracy = final_accuracy
 
+	# Populate accuracy debug breakdown.
+	result.acc_base = BASE_ACCURACY
+	result.acc_stat_bonus = accuracy_stat_bonus
+	result.acc_ability_mod = base_accuracy_modifier + ability_acc_modifier
+	result.acc_cover_mod = base_accuracy_modifier if result.cover_penalty_applied else 0
+	result.acc_evasion = target_evasion
+
 	# ── Hit / crit determination (d100) ──────────────────────────────────────
 	var roll: int = _dice_roller.roll_d100()
+	result.roll_d100 = roll
 	# Hit if roll ≤ clamped hit-chance (min of final_accuracy and 100).
 	result.hit = roll <= mini(100, maxi(0, final_accuracy))
 	# Any accuracy above 100 spills over as crit chance.
@@ -275,21 +336,27 @@ func _roll_accuracy_and_damage(
 		var reliability: float = clampf(weapon.base_reliability + ability_reliability_bonus, 0.0, 1.0)
 		var uses_rel: bool = reliability > 0.0
 
-		var raw_damage: float = (
-				_dice_roller.roll_dice(dice[0], dice[1], uses_rel, reliability)
-				+ damage_stat_bonus)
+		var raw_roll: float = float(_dice_roller.roll_dice(dice[0], dice[1], uses_rel, reliability))
 
 		# Add action-level bonus dice on top of the weapon roll (e.g. achilles_bane +1d4).
+		var bonus_dice_roll: float = 0.0
 		if action != null and action.bonus_dice != null:
-			raw_damage += float(action.bonus_dice.roll(_dice_roller, false, 0.0))
+			bonus_dice_roll = float(action.bonus_dice.roll(_dice_roller, false, 0.0))
 
-		# Subtract armor value for physical attacks.
-		if weapon.damage_type == WeaponData.DamageType.PHYSICAL:
-			raw_damage = maxf(0.0, raw_damage - target.get_armor_value())
+		var raw_damage: float = raw_roll + damage_stat_bonus + bonus_dice_roll
 
 		# Apply critical hit multiplier AFTER all other effects and modifiers.
 		if result.crit:
 			raw_damage *= 1.0 + CRIT_DAMAGE_PERCENT / 100.0
+
+		# Armor is now a separate HP bar handled in apply_damage; no flat reduction here.
+		# Populate damage debug breakdown.
+		result.dmg_dice_count = dice[0]
+		result.dmg_dice_sides = dice[1]
+		result.dmg_raw_roll = raw_roll
+		result.dmg_stat_bonus = damage_stat_bonus
+		result.dmg_bonus_dice = bonus_dice_roll
+		# Armor absorption logged in ServerGame after apply_damage is called.
 
 		result.damage_dealt = raw_damage
 
@@ -302,12 +369,12 @@ func _get_accuracy_bonus(attacker: CharacterData, weapon: WeaponData) -> int:
 		WeaponData.DamageType.PHYSICAL:
 			# Finesse weapons grant double the Dexterity accuracy bonus.
 			if weapon.is_finesse():
-				return int(attacker.dexterity / 2) * 2
-			return int(attacker.dexterity / 2)
+				return attacker.stat_bonus(attacker.dexterity) * 2
+			return attacker.stat_bonus(attacker.dexterity)
 		WeaponData.DamageType.RANGED:
-			return int(attacker.intelligence / 2)
+			return attacker.stat_bonus(attacker.intelligence)
 		WeaponData.DamageType.MAGICAL:
-			return int((attacker.intelligence + attacker.wisdom) / 4)
+			return (attacker.stat_bonus(attacker.intelligence) + attacker.stat_bonus(attacker.wisdom)) / 2
 	return 0
 
 func _get_damage_bonus(attacker: CharacterData, weapon: WeaponData) -> int:
@@ -315,12 +382,12 @@ func _get_damage_bonus(attacker: CharacterData, weapon: WeaponData) -> int:
 		WeaponData.DamageType.PHYSICAL:
 			# Finesse weapons use Wisdom for the damage bonus instead of Strength.
 			if weapon.is_finesse():
-				return int(attacker.wisdom / 2)
-			return int(attacker.strength / 2)
+				return attacker.stat_bonus(attacker.wisdom)
+			return attacker.stat_bonus(attacker.strength)
 		WeaponData.DamageType.RANGED:
-			return int(attacker.wisdom / 2)
+			return attacker.stat_bonus(attacker.wisdom)
 		WeaponData.DamageType.MAGICAL:
-			return int((attacker.wisdom + attacker.intelligence) / 4)
+			return (attacker.stat_bonus(attacker.wisdom) + attacker.stat_bonus(attacker.intelligence)) / 2
 	return 0
 
 # ---------------------------------------------------------------------------

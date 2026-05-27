@@ -94,7 +94,16 @@ var is_crouched: bool = false
 ## Cleared at the start of each of this character's turns.
 ## Used to enforce the Aiming keyword restriction and NOT_MOVED_THIS_TURN conditions.
 var moved_this_turn: bool = false
-## Per-segment current HP. Index 0 is the leftmost (first lost) segment.
+## Whether the character used Stand Up this turn.
+## When true, movement speed is halved for this turn.
+## Cleared at the start of each of this character's turns.
+var stood_up_this_turn: bool = false
+## Current armor HP (separate bar depleted before regular HP; cannot be healed).
+## Initialised from equipped armor's AV × character level.
+var armor_hp: float = 0.0
+## Maximum armor HP (AV × character level).  0 when no armor is equipped.
+var armor_max_hp: float = 0.0
+## Per-segment current HP. Index 0 is the first segment to drain.
 var segment_hp: Array[float] = []
 ## Which segments have been permanently disabled (KNOCKED_DOWN segments).
 var segment_disabled: Array[bool] = []
@@ -123,9 +132,28 @@ const CARRY_WEIGHT_PER_STR: float = 2.0
 # Derived Stat Calculations
 # ---------------------------------------------------------------------------
 
-## Returns the character's maximum health pool based on constitution.
+## Returns the DnD-style stat bonus: (stat_value - 10) / 2 (integer division, can be negative).
+func stat_bonus(stat_value: int) -> int:
+	return (stat_value - 10) / 2
+
+## Returns the character's maximum health pool.
+## When class_data is set, uses level-based hit dice:
+##   Level 1: max dice roll (count × sides) + CON_bonus × level_health_modifier
+##   Level N (N>1): average dice per additional level + same bonus
+## Falls back to constitution × HP_PER_CON for characters without class data.
 func get_max_hp() -> float:
-	return constitution * HP_PER_CON
+	if class_data == null or class_data.hit_dice == null:
+		return constitution * HP_PER_CON
+	var dice: DiceValue = class_data.hit_dice
+	var con_bonus: int = stat_bonus(constitution)
+	var health_mod: int = class_data.level_health_modifier
+	var hp: float = 0.0
+	# Level 1 uses the maximum possible dice result.
+	hp += float(dice.count * dice.sides) + float(con_bonus * health_mod)
+	# Each additional level uses the average dice result.
+	for _lv in range(2, level + 1):
+		hp += float(dice.count) * float(dice.sides + 1) / 2.0 + float(con_bonus * health_mod)
+	return maxf(1.0, hp)
 
 ## Returns the maximum carry weight based on strength.
 func get_max_carry_weight() -> float:
@@ -154,17 +182,17 @@ func get_encumbrance_penalty() -> int:
 		return 0
 	return 1 + int(floor(excess / 3.0))
 
-## Returns base movement speed (dexterity-derived), reduced by encumbrance and armor.
+## Returns base movement speed: 4 + max(0, DEX_bonus) − encumbrance + armor modifier.
 func get_base_movement_speed() -> int:
-	var base_speed: int = 3 + int(dexterity / 5)
+	var base_speed: int = 4 + maxi(0, stat_bonus(dexterity))
 	if armor_slot:
 		base_speed += armor_slot.movement_modifier
 	base_speed -= get_encumbrance_penalty()
 	return max(1, base_speed)
 
-## Returns character evasion (from dexterity + armor modifier), clamped to >= 0.
+## Returns character evasion: DEX_bonus + armor modifier, clamped to >= 0.
 func get_character_evasion() -> int:
-	var evasion: int = int(dexterity / 2)
+	var evasion: int = stat_bonus(dexterity)
 	if armor_slot:
 		evasion += armor_slot.evasion_modifier
 	return max(0, evasion)
@@ -191,6 +219,13 @@ func get_armor_value() -> int:
 # ---------------------------------------------------------------------------
 # Health Segment Initialisation
 # ---------------------------------------------------------------------------
+
+## Initialises armor HP from equipped armor: AV × character level.
+## Must be called after health segments are initialised (at match load time).
+func initialise_armor_hp() -> void:
+	var av: int = get_armor_value()
+	armor_max_hp = float(av * level)
+	armor_hp = armor_max_hp
 
 ## Initialises the 3-segment HP arrays using class-specific percentage splits.
 ## segment_percentages must be a 3-element array summing to 1.0.
@@ -223,12 +258,44 @@ func get_current_max_hp() -> float:
 			total += max_hp * _segment_percentages[i]
 	return total
 
-## Applies damage using spillover resolution across segments (leftmost first active).
+## Applies damage (positive) or healing (negative) to the character.
+## Damage depletes armor HP first, then spills into HP segments (index 0 first).
+## Healing restores HP segments from the last segment backwards; armor is NOT healed.
 ## Returns true if the character was knocked down as a result.
 func apply_damage(damage: float) -> bool:
+	# ── Healing (negative damage) ──────────────────────────────────────────────
+	if damage < 0.0:
+		var heal: float = -damage
+		var max_hp: float = get_max_hp()
+		for i in range(segment_hp.size() - 1, -1, -1):
+			if segment_disabled[i]:
+				continue
+			var seg_max: float
+			if i < _segment_percentages.size():
+				seg_max = max_hp * _segment_percentages[i]
+			else:
+				seg_max = max_hp / float(segment_hp.size())
+			var space: float = maxf(0.0, seg_max - segment_hp[i])
+			var applied: float = minf(heal, space)
+			segment_hp[i] += applied
+			heal -= applied
+			if heal <= 0.0:
+				break
+		# Revive from KNOCKED_DOWN if HP is restored.
+		if get_current_hp() > 0.0 and state_flag == StateFlag.KNOCKED_DOWN:
+			state_flag = StateFlag.LIVING
+		return false
+
+	# ── Damage (positive) ─────────────────────────────────────────────────────
 	var remaining_damage: float = damage
-	# Segments are ordered index 0 (first lost) -> index 2 (last lost).
-	# Apply damage left-to-right (index 0 first).
+
+	# Armor HP is depleted before regular HP (cannot be healed back).
+	if armor_hp > 0.0 and remaining_damage > 0.0:
+		var absorbed: float = minf(remaining_damage, armor_hp)
+		armor_hp -= absorbed
+		remaining_damage -= absorbed
+
+	# Apply remaining damage to HP segments (index 0 first).
 	for i in segment_hp.size():
 		if segment_disabled[i]:
 			continue
@@ -278,6 +345,7 @@ func _trigger_knockdown() -> bool:
 	return true
 
 ## Fully restores all health segments and sets state to LIVING.
+## Armor HP is intentionally NOT restored — armor cannot be healed.
 ## Uses the stored class-specific percentages to restore correct proportional HP.
 func full_heal() -> void:
 	var max_hp: float = get_max_hp()
