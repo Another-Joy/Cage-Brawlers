@@ -116,7 +116,7 @@ func get_effective_damage_dice(two_handed: bool) -> Array[int]:
 
 ## Returns the weapon type name as a lowercase string (e.g. "axe", "sword").
 func get_weapon_type_name() -> String:
-	return WeaponType.get_name(weapon_type)
+	return WeaponType.get_type_name(weapon_type)
 
 ## Returns the display name of this weapon's damage type.
 func get_damage_type_name() -> String:

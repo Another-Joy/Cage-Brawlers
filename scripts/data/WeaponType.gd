@@ -21,7 +21,7 @@ enum Type {
 const NAMES: Array[String] = ["sword", "axe", "dagger", "bow", "crossbow", "rifle", "tome", "ball"]
 
 ## Returns the lowercase name for a given weapon type integer.
-static func get_name(type: int) -> String:
+static func get_type_name(type: int) -> String:
 	if type >= 0 and type < NAMES.size():
 		return NAMES[type]
 	return "unknown"
