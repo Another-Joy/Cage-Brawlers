@@ -277,8 +277,12 @@ func _rebuild_hp_bars(char_dict: Dictionary) -> void:
 	var armor_hp  : float = char_dict.get("armor_hp",     0.0)
 	var armor_max : float = char_dict.get("armor_max_hp", 0.0)
 
-	# Segments are displayed right-to-left: index 0 (first to drain) is rightmost.
-	# We iterate in reverse so the rightmost child is added last.
+	# Compute integer segment maxes: ceil for all except last (which gets remainder).
+	var total_max_int: int = 0
+	for m in seg_maxs:
+		total_max_int += int(float(m))
+	var seg_max_ints: Array = _compute_int_seg_maxes(seg_maxs)
+
 	var total_hp: float = 0.0
 	var max_hp: float = 0.0
 	for i in segs.size():
@@ -289,34 +293,78 @@ func _rebuild_hp_bars(char_dict: Dictionary) -> void:
 	vbox_hp.add_theme_constant_override("separation", 2)
 	_hbox_hp.add_child(vbox_hp)
 
-	# HP integer label.
+	# HP integer label (totals).
 	var hp_label := Label.new()
 	hp_label.text = "%d / %d HP" % [int(total_hp), int(max_hp)]
 	hp_label.add_theme_font_size_override("font_size", 11)
 	vbox_hp.add_child(hp_label)
 
 	# HP segment bars — reversed so index 0 (first to drain) is on the right.
+	# Each segment shows a ProgressBar plus an integer "X/Y" label underneath.
 	var bars_hbox := HBoxContainer.new()
 	bars_hbox.add_theme_constant_override("separation", 1)
 	vbox_hp.add_child(bars_hbox)
 	for i in range(segs.size() - 1, -1, -1):
+		var seg_max_i: float = float(seg_maxs[i]) if i < seg_maxs.size() else 1.0
+		var seg_max_int: int = seg_max_ints[i] if i < seg_max_ints.size() else int(seg_max_i)
+		var cur_int: int = min(int(segs[i]), seg_max_int) if segs[i] > 0.0 else 0
+		var seg_vbox := VBoxContainer.new()
+		seg_vbox.add_theme_constant_override("separation", 1)
 		var bar := ProgressBar.new()
-		bar.custom_minimum_size = Vector2(58.0, 20.0)
-		bar.max_value = seg_maxs[i] if i < seg_maxs.size() else 1.0
-		bar.value     = segs[i] if segs[i] > 0.0 else 0.0
+		bar.custom_minimum_size = Vector2(58.0, 14.0)
+		bar.show_percentage = false
+		bar.max_value = seg_max_i
+		bar.value     = float(segs[i]) if segs[i] > 0.0 else 0.0
 		if i < disabled.size() and disabled[i]:
 			bar.value    = 0.0
 			bar.modulate = Color(0.35, 0.35, 0.35)
-		bars_hbox.add_child(bar)
+		seg_vbox.add_child(bar)
+		var lbl := Label.new()
+		lbl.text = "%d/%d" % [cur_int, seg_max_int]
+		lbl.add_theme_font_size_override("font_size", 9)
+		lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		seg_vbox.add_child(lbl)
+		bars_hbox.add_child(seg_vbox)
 
 	# Armor bar (rightmost — first to drain overall) if armor exists.
 	if armor_max > 0.0:
+		var armor_max_int: int = int(armor_max)
+		var armor_cur_int: int = int(armor_hp)
+		var armor_vbox := VBoxContainer.new()
+		armor_vbox.add_theme_constant_override("separation", 1)
 		var armor_bar := ProgressBar.new()
-		armor_bar.custom_minimum_size = Vector2(58.0, 20.0)
+		armor_bar.custom_minimum_size = Vector2(58.0, 14.0)
+		armor_bar.show_percentage = false
 		armor_bar.max_value = armor_max
 		armor_bar.value = armor_hp
 		armor_bar.modulate = Color(1.0, 0.85, 0.2)  # gold
-		bars_hbox.add_child(armor_bar)
+		armor_vbox.add_child(armor_bar)
+		var armor_lbl := Label.new()
+		armor_lbl.text = "%d/%d" % [armor_cur_int, armor_max_int]
+		armor_lbl.add_theme_font_size_override("font_size", 9)
+		armor_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		armor_vbox.add_child(armor_lbl)
+		bars_hbox.add_child(armor_vbox)
+
+## Computes integer segment maxes from float values.
+## Uses ceil for all segments except the last, which receives the remainder,
+## so the total always equals the rounded total max HP.
+func _compute_int_seg_maxes(seg_maxs: Array) -> Array:
+	if seg_maxs.is_empty():
+		return []
+	var total_int: int = 0
+	for m in seg_maxs:
+		total_int += int(roundf(float(m)))
+	# Use ceil for all but the last; last gets remainder.
+	var result: Array = []
+	var allocated: int = 0
+	for i in range(seg_maxs.size() - 1):
+		var v: int = ceili(float(seg_maxs[i]))
+		result.append(v)
+		allocated += v
+	# Last segment gets the remaining HP.
+	result.append(maxi(0, total_int - allocated))
+	return result
 
 func _rebuild_equipment_panel(char_dict: Dictionary) -> void:
 	for c in _vbox_equip.get_children():
@@ -333,11 +381,14 @@ func _rebuild_equipment_panel(char_dict: Dictionary) -> void:
 		var mh: Dictionary = equip["main_hand"]
 		var kwds: Array = mh.get("keywords", [])
 		var kw_str: String = (" [%s]" % ", ".join(kwds)) if kwds.size() > 0 else ""
-		_equip_label("  Main: %s  %s %s  r%d%s" % [
+		var rel: float = float(mh.get("reliability", 0.0))
+		var rel_str: String = (" rel:+%d%%" % int(rel * 100.0)) if rel > 0.0 else ""
+		_equip_label("  Main: %s  %s %s  r%d%s%s" % [
 			mh.get("name", "?"),
 			mh.get("damage", "?"),
 			mh.get("damage_type", "?"),
 			int(mh.get("range", 1)),
+			rel_str,
 			kw_str,
 		])
 
@@ -576,11 +627,13 @@ func _draw() -> void:
 				HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color.WHITE)
 		return
 
-	var map_d     : Dictionary = _state.get("map", {})
-	var tiles     : Array      = map_d.get("tiles", [])
-	var boundaries: Array      = map_d.get("boundaries", [])
-	var chars     : Array      = _state.get("characters", [])
-	var active_id : String     = _state.get("active_char", "")
+	var map_d             : Dictionary = _state.get("map", {})
+	var tiles             : Array      = map_d.get("tiles", [])
+	var boundaries        : Array      = map_d.get("boundaries", [])
+	var chars             : Array      = _state.get("characters", [])
+	var active_id         : String     = _state.get("active_char", "")
+	var movable_tiles     : Array      = _state.get("movable_tiles", [])
+	var attackable_targets: Array      = _state.get("attackable_targets", [])
 
 	# --- Draw tiles ──────────────────────────────────────────────────────
 	for t in tiles:
@@ -595,16 +648,19 @@ func _draw() -> void:
 
 		# Selection mode tint
 		if _input_mode == "select_move":
-			draw_rect(rect, C_SEL_MOVE, true)
+			# Highlight only tiles that are actually reachable.
+			for mt in movable_tiles:
+				if mt["x"] == t["x"] and mt["y"] == t["y"]:
+					draw_rect(rect, C_SEL_MOVE, true)
+					break
 		elif _input_mode == "select_attack":
-			# Highlight tiles occupied by enemy characters
+			# Highlight only tiles occupied by attackable enemies.
 			for cd in chars:
+				if not attackable_targets.has(cd["id"]):
+					continue
 				var cp: Dictionary = cd["pos"]
 				if cp["x"] == t["x"] and cp["y"] == t["y"]:
-					var active_char_dict: Dictionary = _find_char_dict(active_id)
-					var active_player: String = active_char_dict.get("player_id", "")
-					if cd["player_id"] != active_player:
-						draw_rect(rect, C_SEL_ATTACK, true)
+					draw_rect(rect, C_SEL_ATTACK, true)
 		elif _input_mode == "select_ability_target":
 			# Highlight all occupied tiles (the server validates eligibility)
 			for cd in chars:

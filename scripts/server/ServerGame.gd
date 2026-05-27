@@ -280,6 +280,43 @@ func _serialize_state() -> Dictionary:
 		phase_str = _phase_name(combat._current_phase)
 		round_num = combat._round_number
 
+	var movable_tiles: Array = []
+	var attackable_targets: Array = []
+	if combat and active_char_id != "":
+		var active_char: CharacterData = _char_lookup.get(active_char_id, null)
+		var active_player_id: String = _get_player_id_for_char(active_char)
+		if active_char != null:
+			if phase_str == "beginning" and not active_char.moved_this_turn and not active_char.is_crouched:
+				var speed: int = active_char.get_base_movement_speed()
+				if active_char.stood_up_this_turn:
+					speed = int(ceil(speed / 2.0))
+				var can_vault: bool = _char_can_vault(active_char)
+				var reachable: Dictionary = combat._pathfinding.get_reachable_tiles(active_char.grid_position, speed, can_vault)
+				for tile in reachable:
+					if tile == active_char.grid_position:
+						continue
+					var occupied: bool = false
+					for other in combat._all_characters:
+						if other.character_id != active_char_id \
+								and other.grid_position == tile \
+								and other.state_flag != CharacterData.StateFlag.DEAD:
+							occupied = true
+							break
+					if not occupied:
+						movable_tiles.append({"x": tile.x, "y": tile.y})
+			if phase_str == "main" and active_char.main_hand_slot != null:
+				var atk_range: int = active_char.main_hand_slot.attack_range
+				for other in combat._all_characters:
+					if other.character_id == active_char_id:
+						continue
+					if other.state_flag == CharacterData.StateFlag.DEAD:
+						continue
+					var dist: int = abs(active_char.grid_position.x - other.grid_position.x) \
+							+ abs(active_char.grid_position.y - other.grid_position.y)
+					if dist <= atk_range:
+						if _get_player_id_for_char(other) != active_player_id:
+							attackable_targets.append(other.character_id)
+
 	return {
 		"map": _serialize_map(),
 		"characters": chars_out,
@@ -287,6 +324,8 @@ func _serialize_state() -> Dictionary:
 		"active_char": active_char_id,
 		"phase": phase_str,
 		"round": round_num,
+		"movable_tiles": movable_tiles,
+		"attackable_targets": attackable_targets,
 	}
 
 func _serialize_char(char_data: CharacterData, player_id: String) -> Dictionary:
@@ -315,6 +354,7 @@ func _serialize_char(char_data: CharacterData, player_id: String) -> Dictionary:
 			"range":       w.attack_range,
 			"damage_type": w.get_damage_type_name(),
 			"keywords":    w.keywords.duplicate(),
+			"reliability": w.base_reliability,
 		}
 	if char_data.off_hand_slot:
 		var e: EquipmentData = char_data.off_hand_slot
@@ -549,4 +589,21 @@ func _ability_needs_target(ability: AbilityData) -> bool:
 			return true
 		if action.target_type != AbilityAction.TargetType.SELF:
 			return true
+	return false
+
+## Returns the player_id owning the given character, or "" if not found.
+func _get_player_id_for_char(char_data: CharacterData) -> String:
+	if char_data == null:
+		return ""
+	for pid in _team_map:
+		if _team_map[pid].has(char_data):
+			return pid
+	return ""
+
+## Returns true if the character has the Vault keyword in any skill tree entry.
+func _char_can_vault(char_data: CharacterData) -> bool:
+	for tree in char_data.skill_trees:
+		for entry in tree:
+			if (entry as SkillTreeEntry).has_keyword("Vault"):
+				return true
 	return false
