@@ -25,6 +25,8 @@ signal character_knocked_down(character: CharacterData)
 signal character_died(character: CharacterData)
 ## Emitted when the match ends.
 signal match_ended(winner_player_id: String)
+## Emitted for notable combat events not covered by other signals (riposte, ability attacks, etc.).
+signal combat_event(message: String)
 
 # ---------------------------------------------------------------------------
 # Enums
@@ -112,6 +114,9 @@ func _begin_next_turn() -> void:
 	if _active_character == null:
 		_start_new_round()
 		return
+
+	# Tick timed buffs/debuffs at the start of this character's turn.
+	_tick_buffs(_active_character)
 
 	# Reset per-turn combat state for the incoming active character.
 	_active_character.moved_this_turn = false
@@ -216,21 +221,22 @@ func process_attack_action(
 			return dummy_result
 
 	var result: AttackResolver.AttackResult
+
 	if attacker.is_dual_wielding():
-		var dual_results: Array = _attack_resolver.resolve_dual_wield(attacker, target)
-		# Apply damage from all valid hits.
-		for r in dual_results:
-			if r.valid and r.hit:
-				var knocked_down: bool = target.apply_damage(r.damage_dealt)
-				if knocked_down:
-					_on_character_knocked_down(target)
-		result = dual_results[0] if dual_results.size() > 0 else dummy_result
+		# Fire each weapon individually so riposte checks apply per-attack.
+		var weapons: Array = [attacker.main_hand_slot, attacker.off_hand_slot as WeaponData]
+		result = dummy_result
+		for w in weapons:
+			if w == null:
+				continue
+			var r: AttackResolver.AttackResult = _attack_resolver.resolve_attack(
+					attacker, target, w, skill_or_ability)
+			_apply_attack_result_with_riposte(r, attacker, target, w)
+			if result == dummy_result:
+				result = r
 	else:
 		result = _attack_resolver.resolve_attack(attacker, target, weapon, skill_or_ability)
-		if result.valid and result.hit:
-			var knocked_down: bool = target.apply_damage(result.damage_dealt)
-			if knocked_down:
-				_on_character_knocked_down(target)
+		_apply_attack_result_with_riposte(result, attacker, target, weapon)
 
 	return result
 
@@ -360,6 +366,76 @@ func advance_to_ending_phase() -> void:
 		emit_signal("turn_started", _active_character, _current_phase)
 
 # ---------------------------------------------------------------------------
+# Riposte System
+# ---------------------------------------------------------------------------
+
+## Applies an attack result, checking for a riposte counter-attack first.
+## For physical attacks against a character in riposte stance:
+##   - The attack is negated (parried), stance is cleared, counter fires.
+## For non-physical or no stance: normal damage application.
+func _apply_attack_result_with_riposte(
+		result: AttackResolver.AttackResult,
+		attacker: CharacterData,
+		target: CharacterData,
+		weapon: WeaponData) -> void:
+
+	if not result.valid:
+		return
+
+	# Only physical attacks can be parried by Riposte.
+	if result.hit and weapon.damage_type == WeaponData.DamageType.PHYSICAL \
+			and target.active_buffs.has("riposte_stance"):
+		# Parry: cancel the hit and counter.
+		target.active_buffs.erase("riposte_stance")
+		result.riposte_triggered = true
+		result.hit = false
+		result.damage_dealt = 0.0
+		emit_signal("combat_event",
+				"%s parries %s's attack and ripostes!" % [target.character_id, attacker.character_id])
+		_execute_riposte(target, attacker)
+		return
+
+	# Non-physical or no stance: clear stance if present (riposte expires).
+	if target.active_buffs.has("riposte_stance") \
+			and weapon.damage_type != WeaponData.DamageType.PHYSICAL:
+		target.active_buffs.erase("riposte_stance")
+
+	# Normal hit resolution.
+	if result.hit:
+		var knocked_down: bool = target.apply_damage(result.damage_dealt)
+		if knocked_down:
+			_on_character_knocked_down(target)
+
+## Executes the Riposte counter-attack: the riposte user immediately strikes back
+## at the original attacker with -50% reliability (reflecting a hasty parry-riposte).
+func _execute_riposte(riposte_user: CharacterData, original_attacker: CharacterData) -> void:
+	var weapon: WeaponData = riposte_user.main_hand_slot
+	if weapon == null:
+		return
+
+	# Synthesise a one-shot AbilityAction to carry the reliability penalty.
+	var counter_action: AbilityAction = AbilityAction.new()
+	counter_action.action_type = AbilityAction.ActionType.ATTACK
+	counter_action.reliability_modifier_percent = -50.0
+
+	var result: AttackResolver.AttackResult = _attack_resolver.resolve_attack(
+			riposte_user, original_attacker, weapon, null, counter_action)
+
+	if result.valid and result.hit:
+		var knocked_down: bool = original_attacker.apply_damage(result.damage_dealt)
+		if knocked_down:
+			_on_character_knocked_down(original_attacker)
+		emit_signal("combat_event",
+				"Riposte: %s hits %s for %.0f damage%s" % [
+					riposte_user.character_id,
+					original_attacker.character_id,
+					result.damage_dealt,
+					" (CRIT!)" if result.crit else ""])
+	else:
+		emit_signal("combat_event",
+				"Riposte: %s misses %s" % [riposte_user.character_id, original_attacker.character_id])
+
+# ---------------------------------------------------------------------------
 # Ability Execution
 # ---------------------------------------------------------------------------
 
@@ -401,9 +477,13 @@ func process_ability(
 	if not _check_ability_conditions(character, ability, target):
 		return false
 
+	# Context carries data shared across actions in the same ability sequence
+	# (e.g. last_attack_damage for drain_life's heal fraction).
+	var context: Dictionary = {}
+
 	# Execute each action in order.
 	for action in ability.actions:
-		_execute_ability_action(character, action, target)
+		_execute_ability_action(character, action, target, ability, context)
 
 	# Apply cooldown if this ability has one.
 	if ability.cooldown_turns > 0:
@@ -468,40 +548,83 @@ func _evaluate_ability_condition(
 	return true
 
 ## Executes a single AbilityAction for a character.
-## This is a thin dispatch layer; complex actions delegate to existing subsystems.
+## parent_ability carries ability-level modifiers applied to attacks and heals.
+## context is a shared Dictionary for intra-ability data (e.g. last_attack_damage).
 func _execute_ability_action(
 		character: CharacterData,
 		action: AbilityAction,
-		target: CharacterData) -> void:
+		target: CharacterData,
+		parent_ability: AbilityData,
+		context: Dictionary) -> void:
 
 	match action.action_type:
 		AbilityAction.ActionType.STAND_UP:
 			character.is_crouched = false
+
 		AbilityAction.ActionType.CROUCH:
 			character.is_crouched = true
+
 		AbilityAction.ActionType.MOVE:
 			# MOVE actions are declared via process_move_action; this hook is for
 			# abilities that grant bonus movement (e.g. a dash), not a full move phase.
-			# Actual path resolution is left to the caller with the destination tile.
 			pass
+
 		AbilityAction.ActionType.ATTACK:
 			if target == null or character.main_hand_slot == null:
 				return
-			var result: AttackResolver.AttackResult = _attack_resolver.resolve_attack(
-					character, target, character.main_hand_slot)
-			if result.valid and result.hit:
-				var knocked_down: bool = target.apply_damage(result.damage_dealt)
-				if knocked_down:
-					_on_character_knocked_down(target)
+			# Build the list of weapons to attack with.
+			# For dual-wield characters every ATTACK action fires from both weapons
+			# (e.g. 2 ATTACK actions × 2 axes = 4 total attacks for Reckless Assault).
+			var attack_weapons: Array = [character.main_hand_slot]
+			if character.is_dual_wielding():
+				attack_weapons.append(character.off_hand_slot as WeaponData)
+			var total_damage: float = 0.0
+			for w in attack_weapons:
+				var r: AttackResolver.AttackResult = _attack_resolver.resolve_attack(
+						character, target, w, parent_ability, action)
+				_apply_attack_result_with_riposte(r, character, target, w)
+				if r.valid and r.hit:
+					total_damage += r.damage_dealt
+			context["last_attack_damage"] = total_damage
+
 		AbilityAction.ActionType.HEAL:
-			var heal_amount: float = float(action.flat_bonus)
-			if action.bonus_dice != null:
-				heal_amount += float(action.bonus_dice.roll(_dice_roller, action.uses_reliability, 0.0))
 			var heal_target: CharacterData = _resolve_action_target(character, action, target)
-			if heal_target != null:
-				heal_target.apply_damage(-heal_amount)
+			if heal_target == null:
+				return
+			var heal_amount: float = float(action.flat_bonus)
+			# Weapon-dice-based heal (e.g. Regenerate: 2× weapon damage roll).
+			if action.uses_weapon_dice and character.main_hand_slot != null:
+				var weapon: WeaponData = character.main_hand_slot
+				var is_two_handed_grip: bool = weapon.is_versatile() and character.off_hand_slot == null
+				var dice: Array[int] = weapon.get_effective_damage_dice(is_two_handed_grip)
+				# Apply ability-level dice modifiers.
+				dice[0] = AbilityData.apply_dice_count_modifier(dice[0], parent_ability.dice_count_modifier)
+				dice[1] = AbilityData.apply_dice_tier_modifier(dice[1], parent_ability.dice_tier_modifier)
+				var rel_bonus: float = parent_ability.reliability_modifier_percent / 100.0
+				var reliability: float = clampf(weapon.base_reliability + rel_bonus, 0.0, 1.0)
+				var weapon_roll: float = float(_dice_roller.roll_dice(
+						dice[0], dice[1], reliability > 0.0, reliability))
+				heal_amount += weapon_roll * action.weapon_dice_multiplier
+			elif action.bonus_dice != null:
+				# Fallback: fixed bonus dice (legacy / non-weapon-derived heals).
+				heal_amount += float(action.bonus_dice.roll(_dice_roller, action.uses_reliability, 0.0))
+			# Fraction of last attack damage (e.g. Drain Life heals 50% of damage dealt).
+			if action.heal_from_attack_fraction > 0.0:
+				heal_amount += context.get("last_attack_damage", 0.0) * action.heal_from_attack_fraction
+			heal_target.apply_damage(-heal_amount)
+
+		AbilityAction.ActionType.APPLY_BUFF:
+			var buff_target: CharacterData = _resolve_action_target(character, action, target)
+			if buff_target != null and action.string_param != "":
+				buff_target.active_buffs[action.string_param] = 1
+
+		AbilityAction.ActionType.APPLY_DEBUFF:
+			var debuff_target: CharacterData = _resolve_action_target(character, action, target)
+			if debuff_target != null and action.string_param != "":
+				debuff_target.active_buffs[action.string_param] = 1
+
 		_:
-			pass  # Other action types (APPLY_BUFF, GRANT_BONUS, etc.) are stubs for now.
+			pass  # GRANT_BONUS and other future action types remain stubs.
 
 ## Resolves the target CharacterData for an AbilityAction given the ability's TargetType.
 func _resolve_action_target(
@@ -521,7 +644,7 @@ func _manhattan_distance(a: Vector3i, b: Vector3i) -> int:
 	return abs(a.x - b.x) + abs(a.y - b.y)
 
 ## Decrements all active ability cooldowns for the given character by 1.
-## Called at the start of the character's turn so that a cooldown of 2 means
+## Called at the end of the character's turn so that a cooldown of 2 means
 ## "unavailable the next turn, available the turn after".
 func _tick_cooldowns(character: CharacterData) -> void:
 	var keys_to_remove: Array = []
@@ -531,3 +654,16 @@ func _tick_cooldowns(character: CharacterData) -> void:
 			keys_to_remove.append(key)
 	for key in keys_to_remove:
 		character.ability_cooldowns.erase(key)
+
+## Decrements all active timed buffs/debuffs for the given character by 1.
+## Called at the START of the character's turn. A buff set to 1 expires
+## when this character's next turn begins (lasts one full rotation of the order).
+func _tick_buffs(character: CharacterData) -> void:
+	var keys_to_remove: Array = []
+	for key in character.active_buffs:
+		character.active_buffs[key] -= 1
+		if character.active_buffs[key] <= 0:
+			keys_to_remove.append(key)
+	for key in keys_to_remove:
+		character.active_buffs.erase(key)
+

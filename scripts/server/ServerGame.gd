@@ -32,6 +32,8 @@ var _peer_to_player: Dictionary = {}
 var _char_lookup: Dictionary = {}
 ## player_id (String) → Array[CharacterData]
 var _team_map: Dictionary = {}
+## ability_id (String) → AbilityData: loaded once at match start.
+var _ability_registry: Dictionary = {}
 
 var _match_running: bool = false
 
@@ -47,15 +49,17 @@ func start_test_match() -> void:
 	_match_running = true
 	print("[ServerGame] Building test match…")
 
+	_load_ability_registry()
 	_build_test_map()
 
 	var teams: Dictionary = _build_test_teams()
 	_team_map = teams
 
-	# Populate the fast character lookup.
+	# Populate the fast character lookup and inject test abilities.
 	for player_id in teams:
 		for char_data in teams[player_id]:
 			_char_lookup[char_data.character_id] = char_data
+			_inject_test_abilities(char_data)
 
 	# Assign every connected client to player_a (solo test).
 	# In a full two-player setup you would split by peer index.
@@ -94,6 +98,10 @@ func start_test_match() -> void:
 	_match_manager.match_ended_with_results.connect(_on_match_ended)
 	_match_manager.lock_teams()
 	_match_manager.start_match()
+
+	# Forward combat events (riposte, ability attacks) to clients as log messages.
+	_match_manager._combat_manager.combat_event.connect(
+			func(msg: String) -> void: emit_signal("event_logged", msg))
 
 	print("[ServerGame] Match started!")
 	emit_signal("event_logged", "=== TEST MATCH STARTED ===")
@@ -188,6 +196,22 @@ func handle_action(peer_id: int, action: Dictionary) -> void:
 			else:
 				log_msg = "%s: end turn rejected." % char_data.character_name
 
+		"ability":
+			var ability_id: String = action.get("ability_id", "")
+			var ability: AbilityData = _ability_registry.get(ability_id, null)
+			if ability == null:
+				emit_signal("event_logged", "WARN: unknown ability_id '%s'" % ability_id)
+				return
+			var target_id: String = action.get("target_id", "")
+			var target: CharacterData = _char_lookup.get(target_id, null) if target_id != "" else null
+			if combat.process_ability(char_data, ability, target):
+				log_msg = "%s used %s." % [char_data.character_name, ability.entry_name]
+				# Main-phase abilities advance to Ending phase after use.
+				if ability.is_main_ability():
+					combat.advance_to_ending_phase()
+			else:
+				log_msg = "%s: ability '%s' rejected." % [char_data.character_name, ability.entry_name]
+
 		_:
 			emit_signal("event_logged", "WARN: unknown action type '%s'" % action_type)
 			return
@@ -235,7 +259,12 @@ func _serialize_state() -> Dictionary:
 
 func _serialize_char(char_data: CharacterData, player_id: String) -> Dictionary:
 	var max_hp: float = char_data.get_max_hp()
-	var pcts: Array[float] = ClassDefinitions.get_segment_percentages(char_data.character_class)
+	# Prefer class_data resource percentages; fall back to enum-based lookup.
+	var pcts: Array[float]
+	if char_data.class_data != null and not char_data.class_data.health_segment_percentages.is_empty():
+		pcts = char_data.class_data.health_segment_percentages
+	else:
+		pcts = ClassDefinitions.get_segment_percentages(char_data.character_class)
 	var seg_hp: Array = []
 	var seg_max: Array = []
 	var seg_disabled: Array = []
@@ -279,6 +308,21 @@ func _serialize_char(char_data: CharacterData, player_id: String) -> Dictionary:
 			"movement": a.movement_modifier,
 		}
 
+	# ── Abilities ──────────────────────────────────────────────────────────────
+	var abilities_out: Array = []
+	for tree in char_data.skill_trees:
+		for entry in tree:
+			if entry is AbilityData:
+				var ab: AbilityData = entry as AbilityData
+				abilities_out.append({
+					"id":       ab.entry_id,
+					"name":     ab.entry_name,
+					"phases":   ab.phases,
+					"cooldown_turns": ab.cooldown_turns,
+					"cooldown_remaining": char_data.ability_cooldowns.get(ab.entry_id, 0),
+					"needs_target": _ability_needs_target(ab),
+				})
+
 	return {
 		"id":           char_data.character_id,
 		"name":         char_data.character_name,
@@ -292,6 +336,8 @@ func _serialize_char(char_data: CharacterData, player_id: String) -> Dictionary:
 		"hp_seg_max":   seg_max,
 		"hp_disabled":  seg_disabled,
 		"equipment":    equip,
+		"abilities":    abilities_out,
+		"active_buffs": char_data.active_buffs.keys(),
 	}
 
 func _serialize_map() -> Dictionary:
@@ -406,3 +452,53 @@ func _load_roster(folder_path: String) -> Array[CharacterData]:
 		team.append(char_data)
 
 	return team
+
+## Scans the abilities folder and builds the ability registry (id → AbilityData).
+func _load_ability_registry() -> void:
+	_ability_registry.clear()
+	var folder: String = "res://resources/abilities"
+	var dir := DirAccess.open(folder)
+	if dir == null:
+		push_error("[ServerGame] Cannot open abilities folder: %s" % folder)
+		return
+	dir.list_dir_begin()
+	var fname := dir.get_next()
+	while fname != "":
+		if not dir.current_is_dir() and fname.ends_with(".tres"):
+			var res: Resource = load(folder + "/" + fname)
+			if res is AbilityData:
+				var ab: AbilityData = res as AbilityData
+				_ability_registry[ab.entry_id] = ab
+		fname = dir.get_next()
+	dir.list_dir_end()
+	print("[ServerGame] Loaded %d abilities." % _ability_registry.size())
+
+## Assigns class-appropriate abilities to a character's first skill tree slot.
+## Breaks the shallow-copy reference on skill_trees before writing.
+func _inject_test_abilities(char_data: CharacterData) -> void:
+	# Break the shallow-copy array reference so we don't mutate the base resource.
+	char_data.skill_trees = [[], [], []]
+	var ability_id: String = ""
+	match char_data.character_class:
+		CharacterData.CharacterClass.FIGHTER:
+			ability_id = "riposte"
+		CharacterData.CharacterClass.BRAWLER:
+			ability_id = "reckless_assault"
+		CharacterData.CharacterClass.MAGE:
+			ability_id = "drain_life"
+		CharacterData.CharacterClass.MARKSMAN:
+			ability_id = "hip_shot"
+		CharacterData.CharacterClass.CLERIC:
+			ability_id = "regenerate"
+	if ability_id != "" and _ability_registry.has(ability_id):
+		char_data.skill_trees[0].append(_ability_registry[ability_id])
+
+## Returns true when an ability requires the player to designate a target
+## (i.e. at least one action has a non-SELF target type or is an ATTACK action).
+func _ability_needs_target(ability: AbilityData) -> bool:
+	for action in ability.actions:
+		if action.action_type == AbilityAction.ActionType.ATTACK:
+			return true
+		if action.target_type != AbilityAction.TargetType.SELF:
+			return true
+	return false

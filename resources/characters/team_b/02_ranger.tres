@@ -1,25 +1,28 @@
-[gd_resource type="Resource" script_class="CharacterData" load_steps=4 format=3]
+[gd_resource type="Resource" script_class="CharacterData" load_steps=5 format=3]
 
 [ext_resource type="Script" uid="uid://lmya1w7ogudy" path="res://scripts/data/CharacterData.gd" id="1"]
-[ext_resource type="Resource" path="res://resources/weapons/shortbow.tres" id="2"]
-[ext_resource type="Resource" path="res://resources/armor/cloth_armor.tres" id="3"]
+[ext_resource type="Resource" path="res://resources/weapons/dagger.tres" id="2"]
+[ext_resource type="Resource" path="res://resources/armor/bandit_outfit.tres" id="3"]
+[ext_resource type="Resource" path="res://resources/classes/rogue.tres" id="4"]
 
 [resource]
 script = ExtResource("1")
-character_id = "char_b_ranger"
-character_name = "B-Ranger"
+character_id = "char_b_rogue"
+character_name = "B-Rogue"
 level = 1
 experience = 0
-character_class = 1
+character_class = 3
 state_flag = 0
-strength = 8
+strength = 10
 dexterity = 14
 constitution = 10
-wisdom = 12
-intelligence = 12
+wisdom = 8
+intelligence = 8
 main_hand_slot = ExtResource("2")
+off_hand_slot = ExtResource("2")
 armor_slot = ExtResource("3")
+class_data = ExtResource("4")
 bullets_count = 0
 bolts_count = 0
-arrows_count = 20
+arrows_count = 0
 potions_count = 0

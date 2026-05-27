@@ -61,8 +61,10 @@ const C_HP_BORDER    := Color(0.50, 0.50, 0.50)
 # ---------------------------------------------------------------------------
 
 var _state     : Dictionary = {}
-var _input_mode: String     = "none"  # "none" | "select_move" | "select_attack"
+var _input_mode: String     = "none"  # "none" | "select_move" | "select_attack" | "select_ability_target"
 var _hovered   : Vector2i   = Vector2i(-1, -1)
+## The ability_id awaiting a target when _input_mode == "select_ability_target".
+var _selected_ability_id: String = ""
 
 # ---------------------------------------------------------------------------
 # UI node references (built in _ready)
@@ -323,6 +325,10 @@ func _rebuild_equipment_panel(char_dict: Dictionary) -> void:
 			int(ar.get("movement", 0)),
 		])
 
+	var buffs: Array = char_dict.get("active_buffs", [])
+	if buffs.size() > 0:
+		_equip_label("  Buffs: %s" % ", ".join(buffs))
+
 func _equip_label(text: String) -> void:
 	var lbl := Label.new()
 	lbl.text = text
@@ -367,15 +373,37 @@ func _rebuild_buttons(phase: String) -> void:
 			_add_btn("Attack…", _on_attack_mode)
 			_add_btn("Skip Main",_on_skip_main)
 			_add_btn("End Turn", _on_end_turn)
+			_add_ability_buttons(2)  # PHASE_MAIN = 2
 		"ending":
 			_add_btn("Crouch",  _on_crouch)
 			_add_btn("Stand Up",_on_stand_up)
 			_add_btn("End Turn",_on_end_turn)
+			_add_ability_buttons(4)  # PHASE_ENDING = 4
 		_:
 			_add_btn("End Turn",_on_end_turn)
 
 	if _input_mode != "none":
 		_add_btn("Cancel", _on_cancel)
+
+## Adds ability buttons for abilities usable in the given phase bitmask.
+func _add_ability_buttons(phase_flag: int) -> void:
+	var active_char: Dictionary = _find_char_dict(_active_id())
+	if active_char.is_empty():
+		return
+	for ab in active_char.get("abilities", []):
+		if ab.get("phases", 0) & phase_flag == 0:
+			continue
+		var cooldown: int = ab.get("cooldown_remaining", 0)
+		var label: String = ab.get("name", "?")
+		if cooldown > 0:
+			label = "%s (%d)" % [label, cooldown]
+		var btn := Button.new()
+		btn.text = label
+		btn.disabled = cooldown > 0
+		var ability_id: String = ab.get("id", "")
+		var needs_target: bool = ab.get("needs_target", false)
+		btn.pressed.connect(_on_ability_pressed.bind(ability_id, needs_target))
+		_hbox_btns.add_child(btn)
 
 func _add_btn(label: String, callback: Callable) -> void:
 	var btn := Button.new()
@@ -414,11 +442,24 @@ func _on_crouch() -> void:
 
 func _on_cancel() -> void:
 	_input_mode = "none"
+	_selected_ability_id = ""
 	_rebuild_buttons(_state.get("phase", ""))
 	queue_redraw()
 
 func _on_facing_pressed(direction: int) -> void:
 	_submit({"type": "facing", "char_id": _active_id(), "direction": direction})
+
+## Called when an ability button is pressed.
+## If the ability needs a target, enters select_ability_target mode.
+## Otherwise, submits immediately (self-targeting ability).
+func _on_ability_pressed(ability_id: String, needs_target: bool) -> void:
+	if needs_target:
+		_selected_ability_id = ability_id
+		_input_mode = "select_ability_target"
+		_rebuild_buttons(_state.get("phase", ""))
+		queue_redraw()
+	else:
+		_submit({"type": "ability", "char_id": _active_id(), "ability_id": ability_id})
 
 func _submit(action: Dictionary) -> void:
 	emit_signal("action_submitted", action)
@@ -465,6 +506,15 @@ func _unhandled_input(event: InputEvent) -> void:
 				_submit({"type": "attack", "char_id": aid, "target_id": target_id})
 				_rebuild_buttons(_state.get("phase", ""))
 				queue_redraw()
+		"select_ability_target":
+			var target_id := _char_id_at_tile(tile)
+			if not target_id.is_empty():
+				_input_mode = "none"
+				_submit({"type": "ability", "char_id": aid,
+						"ability_id": _selected_ability_id, "target_id": target_id})
+				_selected_ability_id = ""
+				_rebuild_buttons(_state.get("phase", ""))
+				queue_redraw()
 
 # ---------------------------------------------------------------------------
 # Drawing
@@ -506,6 +556,17 @@ func _draw() -> void:
 					var active_player: String = active_char_dict.get("player_id", "")
 					if cd["player_id"] != active_player:
 						draw_rect(rect, C_SEL_ATTACK, true)
+		elif _input_mode == "select_ability_target":
+			# Highlight all occupied tiles (the server validates eligibility)
+			for cd in chars:
+				var cp: Dictionary = cd["pos"]
+				if cp["x"] == t["x"] and cp["y"] == t["y"]:
+					var active_char_dict: Dictionary = _find_char_dict(active_id)
+					var active_player: String = active_char_dict.get("player_id", "")
+					if cd["player_id"] == active_player:
+						draw_rect(rect, Color(0.20, 0.60, 1.00, 0.28), true)  # blue for allies
+					else:
+						draw_rect(rect, C_SEL_ATTACK, true)  # red for enemies
 
 	# --- Draw boundaries ─────────────────────────────────────────────────
 	for bd in boundaries:

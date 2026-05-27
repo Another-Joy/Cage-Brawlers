@@ -29,6 +29,15 @@ static func get_segment_percentages(char_class: CharacterData.CharacterClass) ->
 		CharacterData.CharacterClass.CLERIC:
 			# Clerics are support-oriented: balanced with a large final segment.
 			return [0.30, 0.30, 0.40]
+		CharacterData.CharacterClass.FIGHTER:
+			# Fighters are heavily armored front-liners: balanced distribution.
+			return [0.50, 0.25, 0.25]
+		CharacterData.CharacterClass.MARKSMAN:
+			# Marksmanship-focused class: moderate health, spread evenly.
+			return [0.34, 0.33, 0.33]
+		CharacterData.CharacterClass.BRAWLER:
+			# Brawlers are aggressive melee fighters: front-heavy pool.
+			return [0.50, 0.30, 0.20]
 		_:
 			return [0.34, 0.33, 0.33]
 
@@ -48,6 +57,12 @@ static func get_weapon_categories(char_class: CharacterData.CharacterClass) -> A
 			return ["dagger", "shortsword", "thrown"]
 		CharacterData.CharacterClass.CLERIC:
 			return ["mace", "staff", "shield"]
+		CharacterData.CharacterClass.FIGHTER:
+			return ["sword", "axe"]
+		CharacterData.CharacterClass.MARKSMAN:
+			return ["rifle", "crossbow"]
+		CharacterData.CharacterClass.BRAWLER:
+			return ["axe", "sword"]
 		_:
 			return ["sword"]
 

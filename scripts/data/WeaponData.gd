@@ -22,26 +22,14 @@ enum AmmoType {
 	ARROWS,   ## 3 — Consumes arrows (2 capacity units each) from the belt.
 }
 
-## Specific weapon type used for class weapon-category filtering and
-## ability/skill requirement checks.
-## Store the integer value in .tres files.
-enum WeaponType {
-	SWORD,     ## 0 — One- or two-handed bladed weapon (longsword, greatsword…)
-	AXE,       ## 1 — Axe-type weapon (handaxe, battleaxe, greataxe…)
-	DAGGER,    ## 2 — Light finesse blade (dagger)
-	BOW,       ## 3 — Bow (shortbow, longbow…)
-	CROSSBOW,  ## 4 — Crossbow (hand crossbow, light crossbow, heavy crossbow…)
-	RIFLE,     ## 5 — Firearm with magazine and Aiming (rifle…)
-	TOME,      ## 6 — Magical focus: tome variant (ancient tome…)
-	BALL,      ## 7 — Magical focus: ball/orb variant (crystal ball…)
-}
-
 # ---------------------------------------------------------------------------
 # Weapon Properties
 # ---------------------------------------------------------------------------
 
 @export var damage_type: DamageType = DamageType.PHYSICAL
-@export var weapon_type: WeaponType = WeaponType.SWORD
+## Weapon type identifier. Use WeaponType constants (e.g. WeaponType.SWORD).
+## The WeaponType class is globally accessible from any script.
+@export var weapon_type: int = WeaponType.SWORD
 
 ## Number of dice to roll for damage (e.g. 2 for 2d6).
 @export var damage_dice_count: int = 1
@@ -128,7 +116,7 @@ func get_effective_damage_dice(two_handed: bool) -> Array[int]:
 
 ## Returns the weapon type name as a lowercase string (e.g. "axe", "sword").
 func get_weapon_type_name() -> String:
-	return WeaponType.keys()[weapon_type].to_lower()
+	return WeaponType.get_name(weapon_type)
 
 ## Returns the display name of this weapon's damage type.
 func get_damage_type_name() -> String:

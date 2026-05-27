@@ -73,3 +73,19 @@ enum TargetType {
 ##   GRANT_BONUS             → name of the stat to temporarily boost
 ##                             (e.g. "strength", "dexterity").
 @export var string_param: String = ""
+
+## When true and action_type == HEAL, the heal amount is derived from
+## the acting character's equipped weapon damage dice (times weapon_dice_multiplier),
+## instead of rolling bonus_dice. Ability-level dice_count_modifier /
+## dice_tier_modifier are applied to the weapon roll first.
+@export var uses_weapon_dice: bool = false
+
+## Multiplier for the weapon dice roll when uses_weapon_dice is true.
+## E.g. 2.0 = heal for twice the weapon damage roll. Default: 1.0.
+@export var weapon_dice_multiplier: float = 1.0
+
+## When > 0 and action_type == HEAL, adds this fraction of the damage dealt
+## by the most recent ATTACK action in the same ability sequence.
+## E.g. 0.5 = heal for 50% of the last attack's damage. Stacks additively
+## with bonus_dice and flat_bonus.
+@export var heal_from_attack_fraction: float = 0.0

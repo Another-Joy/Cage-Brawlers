@@ -2,12 +2,6 @@
 
 [ext_resource type="Script" path="res://scripts/data/AbilityData.gd" id="1"]
 [ext_resource type="Script" path="res://scripts/data/AbilityAction.gd" id="2"]
-[ext_resource type="Script" path="res://scripts/data/DiceValue.gd" id="3"]
-
-[sub_resource type="Resource" id="drain_dice"]
-script = ExtResource("3")
-count = 1
-sides = 6
 
 [sub_resource type="Resource" id="action_attack"]
 script = ExtResource("2")
@@ -18,13 +12,13 @@ target_type = 2
 script = ExtResource("2")
 action_type = 2
 target_type = 0
-bonus_dice = SubResource("drain_dice")
+heal_from_attack_fraction = 0.5
 
 [resource]
 script = ExtResource("1")
 entry_id = "drain_life"
 entry_name = "Drain Life"
-description = "Siphon life force from the target. Attack with +40% Reliability, then heal an ally within range for half the damage dealt (approximated as 1d6)."
+description = "Siphon life force from the target. Attack with +40% Reliability, then heal yourself for half the damage dealt."
 phases = 2
 weapon_requirements = Array[String](["ball"])
 cooldown_turns = 3

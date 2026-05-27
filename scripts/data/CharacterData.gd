@@ -104,6 +104,11 @@ var _segment_percentages: Array[float] = []
 ## Tracks remaining cooldown (in turns) for each ability by entry_id.
 ## Managed by CombatManager: decremented at turn end, set on ability use.
 var ability_cooldowns: Dictionary = {}
+## Active timed buffs and debuffs on this character.
+## Key: buff/debuff identifier (String). Value: turns remaining (int).
+## Ticked down at the start of each of this character's turns by CombatManager.
+## Not exported — reset on each match load via duplicate(false).
+var active_buffs: Dictionary = {}
 
 # ---------------------------------------------------------------------------
 # Constants (override per class via ClassDefinitions utility)

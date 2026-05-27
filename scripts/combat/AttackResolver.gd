@@ -74,6 +74,8 @@ class AttackResult:
 	var damage_dealt: float = 0.0
 	var cover_penalty_applied: bool = false
 	var ammo_consumed: bool = false
+	## True when a riposte stance intercepted this attack (hit cancelled).
+	var riposte_triggered: bool = false
 
 # ---------------------------------------------------------------------------
 # Main Entry Point
@@ -81,23 +83,26 @@ class AttackResult:
 
 ## Validates and resolves a single attack from attacker targeting target using weapon.
 ## Returns an AttackResult describing validity, hit/crit/miss, and damage.
-## skill_or_ability may be a SkillData or AbilityData; accuracy and reliability
-## modifiers are read from it when present.
+## skill_or_ability may be a SkillData or AbilityData; ability-level accuracy,
+## reliability, and dice modifiers are read from it when present.
+## action, if provided, supplies per-action overrides that stack on top of the
+## ability-level modifiers, plus optional bonus_dice added to the damage roll.
 func resolve_attack(
 		attacker: CharacterData,
 		target: CharacterData,
 		weapon: WeaponData,
-		skill_or_ability: SkillTreeEntry = null) -> AttackResult:
+		skill_or_ability: SkillTreeEntry = null,
+		action: AbilityAction = null) -> AttackResult:
 
 	var result: AttackResult = AttackResult.new()
 
 	match weapon.damage_type:
 		WeaponData.DamageType.PHYSICAL:
-			return _resolve_physical(attacker, target, weapon, skill_or_ability, result)
+			return _resolve_physical(attacker, target, weapon, skill_or_ability, action, result)
 		WeaponData.DamageType.RANGED:
-			return _resolve_ranged(attacker, target, weapon, skill_or_ability, result)
+			return _resolve_ranged(attacker, target, weapon, skill_or_ability, action, result)
 		WeaponData.DamageType.MAGICAL:
-			return _resolve_magical(attacker, target, weapon, skill_or_ability, result)
+			return _resolve_magical(attacker, target, weapon, skill_or_ability, action, result)
 
 	result.rejection_reason = "Unknown damage type."
 	return result
@@ -111,6 +116,7 @@ func _resolve_physical(
 		target: CharacterData,
 		weapon: WeaponData,
 		skill_or_ability: SkillTreeEntry,
+		action: AbilityAction,
 		result: AttackResult) -> AttackResult:
 
 	# Height equity check: attacker and target must be on the same floor.
@@ -126,7 +132,7 @@ func _resolve_physical(
 	# Barricades do NOT block melee (they are physically bypassed).
 
 	result.valid = true
-	_roll_accuracy_and_damage(attacker, target, weapon, 0, skill_or_ability, result)
+	_roll_accuracy_and_damage(attacker, target, weapon, 0, skill_or_ability, action, result)
 	return result
 
 # ---------------------------------------------------------------------------
@@ -138,6 +144,7 @@ func _resolve_ranged(
 		target: CharacterData,
 		weapon: WeaponData,
 		skill_or_ability: SkillTreeEntry,
+		action: AbilityAction,
 		result: AttackResult) -> AttackResult:
 
 	# Check ammo availability.
@@ -164,7 +171,7 @@ func _resolve_ranged(
 		result.cover_penalty_applied = true
 
 	result.valid = true
-	_roll_accuracy_and_damage(attacker, target, weapon, accuracy_modifier, skill_or_ability, result)
+	_roll_accuracy_and_damage(attacker, target, weapon, accuracy_modifier, skill_or_ability, action, result)
 	return result
 
 # ---------------------------------------------------------------------------
@@ -176,6 +183,7 @@ func _resolve_magical(
 		target: CharacterData,
 		weapon: WeaponData,
 		skill_or_ability: SkillTreeEntry,
+		action: AbilityAction,
 		result: AttackResult) -> AttackResult:
 
 	# Force stand-up if the attacker is crouched.
@@ -196,11 +204,11 @@ func _resolve_magical(
 			accuracy_modifier += COVER_ACCURACY_PENALTY
 			result.cover_penalty_applied = true
 		result.valid = true
-		_roll_accuracy_and_damage(attacker, target, weapon, accuracy_modifier, skill_or_ability, result)
+		_roll_accuracy_and_damage(attacker, target, weapon, accuracy_modifier, skill_or_ability, action, result)
 	else:
 		# Default magic: unconditional targeting within range; no LoS required.
 		result.valid = true
-		_roll_accuracy_and_damage(attacker, target, weapon, 0, skill_or_ability, result)
+		_roll_accuracy_and_damage(attacker, target, weapon, 0, skill_or_ability, action, result)
 
 	return result
 
@@ -214,6 +222,7 @@ func _roll_accuracy_and_damage(
 		weapon: WeaponData,
 		base_accuracy_modifier: int,
 		skill_or_ability: SkillTreeEntry,
+		action: AbilityAction,
 		result: AttackResult) -> void:
 
 	# ── Collect ability-level modifiers ──────────────────────────────────────
@@ -223,6 +232,11 @@ func _roll_accuracy_and_damage(
 		var ability: AbilityData = skill_or_ability as AbilityData
 		ability_acc_modifier = int(ability.accuracy_modifier_percent)
 		ability_reliability_bonus = ability.reliability_modifier_percent / 100.0
+
+	# ── Per-action overrides (stack on top of ability-level modifiers) ────────
+	if action != null:
+		ability_acc_modifier += int(action.accuracy_modifier_percent)
+		ability_reliability_bonus += action.reliability_modifier_percent / 100.0
 
 	# ── Accuracy formula ─────────────────────────────────────────────────────
 	# final_accuracy = BASE(80) + stat_bonus + situational + ability − evasion
@@ -249,6 +263,12 @@ func _roll_accuracy_and_damage(
 		var is_two_handed_grip: bool = weapon.is_versatile() and attacker.off_hand_slot == null
 		var dice: Array[int] = weapon.get_effective_damage_dice(is_two_handed_grip)
 
+		# Apply ability-level dice modifiers to the weapon's base dice expression.
+		if skill_or_ability is AbilityData:
+			var ability: AbilityData = skill_or_ability as AbilityData
+			dice[0] = AbilityData.apply_dice_count_modifier(dice[0], ability.dice_count_modifier)
+			dice[1] = AbilityData.apply_dice_tier_modifier(dice[1], ability.dice_tier_modifier)
+
 		var damage_stat_bonus: int = _get_damage_bonus(attacker, weapon)
 
 		# Reliability: weapon base + ability modifier, clamped to [0.0, 1.0].
@@ -258,6 +278,10 @@ func _roll_accuracy_and_damage(
 		var raw_damage: float = (
 				_dice_roller.roll_dice(dice[0], dice[1], uses_rel, reliability)
 				+ damage_stat_bonus)
+
+		# Add action-level bonus dice on top of the weapon roll (e.g. achilles_bane +1d4).
+		if action != null and action.bonus_dice != null:
+			raw_damage += float(action.bonus_dice.roll(_dice_roller, false, 0.0))
 
 		# Subtract armor value for physical attacks.
 		if weapon.damage_type == WeaponData.DamageType.PHYSICAL:
