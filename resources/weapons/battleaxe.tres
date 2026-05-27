@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=3 format=3 uid="uid://dlfc2fntuiqm2"]
+
+[ext_resource type="Script" uid="uid://bb3tgc10tnlt3" path="res://scripts/data/WeaponData.gd" id="1"]
+[ext_resource type="Script" uid="uid://c34bt228rslqw" path="res://scripts/data/SkillTreeEntry.gd" id="1_22yv4"]
+
+[resource]
+script = ExtResource("1")
+weapon_type = 1
+damage_dice_sides = 8
+item_id = "battleaxe"
+item_name = "Battleaxe"
+description = "A versatile axe with quite a bit of weight to it."
+weight = 4.0
+keywords = Array[String](["Versatile"])
+keyword_params = {
+"Versatile": {
+"count": 1,
+"sides": 10
+}
+}

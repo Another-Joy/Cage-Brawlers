@@ -92,6 +92,8 @@ class AttackResult:
 	var dmg_bonus_dice: float = 0.0
 	## Damage absorbed by the target's armor HP (for log only; deducted in apply_damage).
 	var armor_absorbed: float = 0.0
+	## Effective reliability factor applied to this damage roll (0.0 = none).
+	var reliability: float = 0.0
 
 # ---------------------------------------------------------------------------
 # Main Entry Point
@@ -141,14 +143,12 @@ func _resolve_physical(
 		result.rejection_reason = "Height mismatch: melee requires same floor level."
 		return result
 
-	# Range check: Chebyshev distance must not exceed the weapon's attack range,
+	# Range check: Manhattan distance must not exceed the weapon's attack range,
 	# adjusted by any ability range modifier.
 	var effective_range: int = weapon.attack_range
 	if skill_or_ability is AbilityData:
 		effective_range += (skill_or_ability as AbilityData).range_modifier
-	var dist: int = maxi(
-			abs(attacker.grid_position.x - target.grid_position.x),
-			abs(attacker.grid_position.y - target.grid_position.y))
+	var dist: int = abs(attacker.grid_position.x - target.grid_position.x) + abs(attacker.grid_position.y - target.grid_position.y)
 	if dist > effective_range:
 		result.rejection_reason = "Target out of melee range (%d > %d)." % [dist, effective_range]
 		return result
@@ -188,14 +188,12 @@ func _resolve_ranged(
 	if attacker.is_crouched:
 		attacker.is_crouched = false
 
-	# Range check: Chebyshev distance must not exceed the weapon's attack range,
+	# Range check: Manhattan distance must not exceed the weapon's attack range,
 	# adjusted by any ability range modifier.
 	var effective_range: int = weapon.attack_range
 	if skill_or_ability is AbilityData:
 		effective_range += (skill_or_ability as AbilityData).range_modifier
-	var dist: int = maxi(
-			abs(attacker.grid_position.x - target.grid_position.x),
-			abs(attacker.grid_position.y - target.grid_position.y))
+	var dist: int = abs(attacker.grid_position.x - target.grid_position.x) + abs(attacker.grid_position.y - target.grid_position.y)
 	if dist > effective_range:
 		result.rejection_reason = "Target out of ranged range (%d > %d)." % [dist, effective_range]
 		return result
@@ -231,14 +229,12 @@ func _resolve_magical(
 	if attacker.is_crouched:
 		attacker.is_crouched = false
 
-	# Range check: Chebyshev distance must not exceed the weapon's attack range,
+	# Range check: Manhattan distance must not exceed the weapon's attack range,
 	# adjusted by any ability range modifier.
 	var effective_range: int = weapon.attack_range
 	if skill_or_ability is AbilityData:
 		effective_range += (skill_or_ability as AbilityData).range_modifier
-	var dist: int = maxi(
-			abs(attacker.grid_position.x - target.grid_position.x),
-			abs(attacker.grid_position.y - target.grid_position.y))
+	var dist: int = abs(attacker.grid_position.x - target.grid_position.x) + abs(attacker.grid_position.y - target.grid_position.y)
 	if dist > effective_range:
 		result.rejection_reason = "Target out of magical range (%d > %d)." % [dist, effective_range]
 		return result
@@ -293,7 +289,7 @@ func _roll_accuracy_and_damage(
 
 	# ── Accuracy formula ─────────────────────────────────────────────────────
 	# final_accuracy = BASE(80) + stat_bonus + situational + ability − evasion
-	var accuracy_stat_bonus: int = _get_accuracy_bonus(attacker, weapon)
+	var accuracy_stat_bonus: int = _get_accuracy_bonus(attacker, weapon)*5
 	var target_evasion: int = target.get_total_evasion()
 	var final_accuracy: int = (BASE_ACCURACY
 			+ accuracy_stat_bonus
@@ -333,8 +329,9 @@ func _roll_accuracy_and_damage(
 		var damage_stat_bonus: int = _get_damage_bonus(attacker, weapon)
 
 		# Reliability: weapon base + ability modifier, clamped to [0.0, 1.0].
-		var reliability: float = clampf(weapon.base_reliability + ability_reliability_bonus, 0.0, 1.0)
+		var reliability: float = clampf(weapon.base_reliability + ability_reliability_bonus + _get_reliability_bonus(attacker, weapon), 0.0, 1.0)
 		var uses_rel: bool = reliability > 0.0
+		result.reliability = reliability
 
 		var raw_roll: float = float(_dice_roller.roll_dice(dice[0], dice[1], uses_rel, reliability))
 
@@ -388,6 +385,19 @@ func _get_damage_bonus(attacker: CharacterData, weapon: WeaponData) -> int:
 			return attacker.stat_bonus(attacker.wisdom)
 		WeaponData.DamageType.MAGICAL:
 			return (attacker.stat_bonus(attacker.wisdom) + attacker.stat_bonus(attacker.intelligence)) / 2
+	return 0
+
+func _get_reliability_bonus(attacker: CharacterData, weapon: WeaponData) -> int:
+	match weapon.damage_type:
+		WeaponData.DamageType.PHYSICAL:
+			# Finesse weapons use Dexterity for the reliability bonus.
+			if weapon.is_finesse():
+				return attacker.stat_bonus(attacker.dexterity) * 0.05
+			return 0
+		WeaponData.DamageType.RANGED:
+			return 0
+		WeaponData.DamageType.MAGICAL:
+			return 0
 	return 0
 
 # ---------------------------------------------------------------------------

@@ -1,32 +1,30 @@
-[gd_resource type="Resource" script_class="SkillData" format=3]
+[gd_resource type="Resource" script_class="SkillData" load_steps=7 format=3 uid="uid://b5a34j5rddhnv"]
 
-[ext_resource type="Script" path="res://scripts/data/SkillData.gd" id="1"]
-[ext_resource type="Script" path="res://scripts/data/SkillCondition.gd" id="3"]
-[ext_resource type="Script" path="res://scripts/data/SkillEffect.gd" id="4"]
-
-[sub_resource type="Resource" id="trigger"]
-script = ExtResource("3")
-major = 1
-minor = 8
+[ext_resource type="Script" uid="uid://pabcgltad57t" path="res://scripts/data/SkillData.gd" id="1"]
+[ext_resource type="Script" uid="uid://howacoe0n8mo" path="res://scripts/data/SkillCondition.gd" id="3"]
+[ext_resource type="Script" uid="uid://cpjntco770l7v" path="res://scripts/data/SkillEffect.gd" id="4"]
 
 [sub_resource type="Resource" id="effect_reliability"]
 script = ExtResource("4")
 effect_type = 9
 target = 0
-value_type = 0
 flat_value = 30
 
 [sub_resource type="Resource" id="effect_range"]
 script = ExtResource("4")
 effect_type = 10
 target = 0
-value_type = 0
 flat_value = 2
+
+[sub_resource type="Resource" id="trigger"]
+script = ExtResource("3")
+major = 1
+minor = 8
 
 [resource]
 script = ExtResource("1")
+triggers = Array[ExtResource("3")]([SubResource("trigger")])
+effects = Array[ExtResource("4")]([SubResource("effect_reliability"), SubResource("effect_range")])
 entry_id = "mages_kefta_bonus"
 entry_name = "Mage's Kefta: Arcane Flow"
 description = "All damaging Magical attacks and abilities gain +30% Reliability and +2 Range."
-triggers = [SubResource("trigger")]
-effects = [SubResource("effect_reliability"), SubResource("effect_range")]

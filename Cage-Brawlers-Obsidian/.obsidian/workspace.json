@@ -27,12 +27,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "Characters/Classes/Rogue.md",
+                "file": "Characters/Classes/Marksman.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "Rogue"
+              "title": "Marksman"
             }
           }
         ],
@@ -200,32 +200,32 @@
   },
   "active": "97fdc7e068de223e",
   "lastOpenFiles": [
+    "Armor/Heavy Armors/Ring Mail.md",
+    "Armor/Heavy Armors/Chain Mail.md",
+    "Armor/Medium Armors/Studded leather.md",
+    "Armor/Medium Armors/Hide.md",
+    "Armor/Medium Armors/Breastplate.md",
+    "Armor/Heavy Armors/Full Plate.md",
+    "Weapons/Melee/Weapons/Handaxe.md",
+    "Weapons/Melee/Weapons/Battleaxe.md",
+    "Weapons/Melee/Weapons/Dagger.md",
+    "Weapons/Melee/Weapons/Greataxe.md",
+    "Weapons/Ranged/Abilities/Achile's Bane.md",
+    "test.md",
+    "Characters/Stats.md",
+    "Weapons/Ranged/Weapons/Shortbow.md",
+    "Characters/Classes/Rogue.md",
     "Characters/Classes/Ranger.md",
     "Characters/Classes/Marksman.md",
-    "Characters/Stats.md",
     "Characters/Classes/Mage.md",
     "Characters/Classes/Fighter.md",
     "Characters/Classes/Cleric.md",
     "Characters/Classes/Brawler.md",
-    "Weapons/Ranged/Abilities/Achile's Bane.md",
     "Weapons/Off-Hand/Buffs/Chained Censer.md",
-    "test.md",
     "Weapons/Magic/Abilities/Fire Artillery.md",
     "Weapons/Magic/Abilities/Lightning's Call.md",
     "Armor/Light Armors/Bandit's Outfit.md",
-    "Armor/Heavy Armors/Ring Mail.md",
-    "Armor/Medium Armors/Studded leather.md",
     "Armor/Light Armors/Simple Gabardine.md",
-    "Weapons/Ranged/Weapons/Rifle.md",
-    "Weapons/Ranged/Weapons/Shortbow.md",
-    "Weapons/Ranged/Weapons/Light Crossbow.md",
-    "Weapons/Ranged/Weapons/Longbow.md",
-    "Weapons/Ranged/Weapons/Heavy Crossbow.md",
-    "Weapons/Ranged/Weapons/Hand Crossbow.md",
-    "Weapons/Magic/Abilities/Regenerate.md",
-    "Weapons/Melee/Weapons/Greataxe.md",
-    "Weapons/Melee/Weapons/Greatsword.md",
-    "Weapons/Off-Hand/Shields/Round Shield.md",
     "Armor/Ideas"
   ]
 }

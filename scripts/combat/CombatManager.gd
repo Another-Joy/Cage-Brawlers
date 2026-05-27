@@ -237,6 +237,10 @@ func process_attack_action(
 					attacker, target, w, skill_or_ability)
 			_apply_attack_result_with_riposte(r, attacker, target, w)
 			results.append(r)
+			# Stop if attacker was killed or knocked down by a riposte counter-attack.
+			if attacker.state_flag == CharacterData.StateFlag.DEAD \
+					or attacker.state_flag == CharacterData.StateFlag.KNOCKED_DOWN:
+				break
 		return results
 	else:
 		var result: AttackResolver.AttackResult = _attack_resolver.resolve_attack(attacker, target, weapon, skill_or_ability)
@@ -433,12 +437,7 @@ func _execute_riposte(riposte_user: CharacterData, original_attacker: CharacterD
 		var knocked_down: bool = original_attacker.apply_damage(result.damage_dealt)
 		if knocked_down:
 			_on_character_knocked_down(original_attacker)
-		emit_signal("combat_event",
-				"Riposte: %s hits %s for %.0f damage%s" % [
-					riposte_user.character_id,
-					original_attacker.character_id,
-					result.damage_dealt,
-					" (CRIT!)" if result.crit else ""])
+		emit_signal("combat_event", _format_attack_event(riposte_user, original_attacker, result, "Riposte"))
 	else:
 		emit_signal("combat_event",
 				"Riposte: %s misses %s" % [riposte_user.character_id, original_attacker.character_id])
@@ -606,6 +605,14 @@ func _execute_ability_action(
 				_apply_attack_result_with_riposte(r, character, target, w)
 				if r.valid and r.hit:
 					total_damage += r.damage_dealt
+				# Announce result (riposte emits its own parry + counter messages).
+				if r.valid and not r.riposte_triggered:
+					emit_signal("combat_event", _format_attack_event(
+							character, target, r, parent_ability.entry_name))
+				# Stop if attacker was killed or knocked down by a riposte counter-attack.
+				if character.state_flag == CharacterData.StateFlag.DEAD \
+						or character.state_flag == CharacterData.StateFlag.KNOCKED_DOWN:
+					break
 			context["last_attack_damage"] = total_damage
 
 		AbilityAction.ActionType.HEAL:
@@ -633,6 +640,9 @@ func _execute_ability_action(
 			if action.heal_from_attack_fraction > 0.0:
 				heal_amount += context.get("last_attack_damage", 0.0) * action.heal_from_attack_fraction
 			heal_target.apply_damage(-heal_amount)
+			if heal_amount > 0.0:
+				emit_signal("combat_event", "%s heals %s for %.0f HP" % [
+						character.character_id, heal_target.character_id, heal_amount])
 
 		AbilityAction.ActionType.APPLY_BUFF:
 			var buff_target: CharacterData = _resolve_action_target(character, action, target)
@@ -663,6 +673,29 @@ func _resolve_action_target(
 ## Simple Manhattan distance helper (ignores z/floor for range checks).
 func _manhattan_distance(a: Vector3i, b: Vector3i) -> int:
 	return abs(a.x - b.x) + abs(a.y - b.y)
+
+## Formats a one-line combat event string for an attack result.
+## Used by ability attacks and riposte so their output matches normal attack logs.
+func _format_attack_event(
+		attacker: CharacterData,
+		target: CharacterData,
+		r: AttackResolver.AttackResult,
+		context_label: String = "") -> String:
+	var label: String = r.weapon_name if r.weapon_name != "" else "weapon"
+	if context_label != "":
+		label = "%s/%s" % [label, context_label]
+	if not r.hit:
+		return "%s [%s] → %s: MISS (acc %d%%, roll %d)" % [
+				attacker.character_id, label, target.character_id,
+				r.final_accuracy, r.roll_d100]
+	var hit_type: String = "CRIT!" if r.crit else "Hit"
+	var rel_str: String = " [rel:%.0f%%]" % (r.reliability * 100.0) if r.reliability > 0.0 else ""
+	var bonus_str: String = " +bonus>%.0f" % r.dmg_bonus_dice if r.dmg_bonus_dice != 0.0 else ""
+	return "%s [%s] → %s: %s (acc %d%%, roll %d) → %.0f dmg (%dd%d%s>%.0f +%d stat%s)" % [
+			attacker.character_id, label, target.character_id,
+			hit_type, r.final_accuracy, r.roll_d100,
+			r.damage_dealt, r.dmg_dice_count, r.dmg_dice_sides,
+			rel_str, r.dmg_raw_roll, r.dmg_stat_bonus, bonus_str]
 
 ## Decrements all active ability cooldowns for the given character by 1.
 ## Called at the end of the character's turn so that a cooldown of 2 means

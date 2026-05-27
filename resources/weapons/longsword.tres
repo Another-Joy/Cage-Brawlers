@@ -1,18 +1,19 @@
-[gd_resource type="Resource" script_class="WeaponData" format=3]
+[gd_resource type="Resource" script_class="WeaponData" load_steps=3 format=3 uid="uid://o8nd6yq7bg6p"]
 
-[ext_resource type="Script" path="res://scripts/data/WeaponData.gd" id="1"]
+[ext_resource type="Script" uid="uid://bb3tgc10tnlt3" path="res://scripts/data/WeaponData.gd" id="1"]
+[ext_resource type="Script" uid="uid://c34bt228rslqw" path="res://scripts/data/SkillTreeEntry.gd" id="1_artd7"]
 
 [resource]
 script = ExtResource("1")
+damage_dice_sides = 8
 item_id = "longsword"
 item_name = "Longsword"
 description = "A versatile blade that can be wielded one- or two-handed."
 weight = 2.0
-keywords = ["Versatile"]
-keyword_params = {"Versatile": {"count": 1, "sides": 10}}
-damage_type = 0
-weapon_type = 0
-damage_dice_count = 1
-damage_dice_sides = 8
-attack_range = 1
-ammo_type = 0
+keywords = Array[String](["Versatile"])
+keyword_params = {
+"Versatile": {
+"count": 1,
+"sides": 10
+}
+}

@@ -235,7 +235,8 @@ func _format_attack_log(attacker: CharacterData, target: CharacterData, r: Attac
 			r.final_accuracy, r.roll_d100]
 
 	var hit_type: String = "CRIT!" if r.crit else "Hit"
-	var dice_str: String = "%dd%d>%.0f" % [r.dmg_dice_count, r.dmg_dice_sides, r.dmg_raw_roll]
+	var rel_str: String = " [rel:%.0f%%]" % (r.reliability * 100.0) if r.reliability > 0.0 else ""
+	var dice_str: String = "%dd%d%s>%.0f" % [r.dmg_dice_count, r.dmg_dice_sides, rel_str, r.dmg_raw_roll]
 	var stat_str: String = ("+%d stat" % r.dmg_stat_bonus) if r.dmg_stat_bonus >= 0 else ("%d stat" % r.dmg_stat_bonus)
 	var bonus_str: String = ""
 	if r.dmg_bonus_dice != 0.0:
@@ -499,37 +500,42 @@ func _build_test_map() -> void:
 		bd.has_barricade = true
 		_map_data.set_boundary(Vector3i(x, 3, 0), Vector3i(x, 4, 0), bd)
 
+# Explicit roster manifests — DirAccess cannot list res:// paths in exported
+# PCK builds, so character files are declared here instead of scanned at runtime.
+# Add new entries when you add character .tres files to the folders.
+const _TEAM_A_FILES: Array[String] = [
+	"res://resources/characters/team_a/01_phys.tres",
+	"res://resources/characters/team_a/02_ranged.tres",
+	"res://resources/characters/team_a/03_magic.tres",
+]
+const _TEAM_B_FILES: Array[String] = [
+	"res://resources/characters/team_b/01_phys.tres",
+	"res://resources/characters/team_b/02_ranged.tres",
+	"res://resources/characters/team_b/03_magic.tres",
+]
+const _ABILITY_FILES: Array[String] = [
+	"res://resources/abilities/achiles_bane.tres",
+	"res://resources/abilities/drain_life.tres",
+	"res://resources/abilities/hip_shot.tres",
+	"res://resources/abilities/peek_shot.tres",
+	"res://resources/abilities/reckless_assault.tres",
+	"res://resources/abilities/regenerate.tres",
+	"res://resources/abilities/riposte.tres",
+]
+
 func _build_test_teams() -> Dictionary:
 	return {
-		"player_a": _load_roster("res://resources/characters/team_a"),
-		"player_b": _load_roster("res://resources/characters/team_b"),
+		"player_a": _load_roster(_TEAM_A_FILES),
+		"player_b": _load_roster(_TEAM_B_FILES),
 	}
 
-## Loads all CharacterData `.tres` files from a folder, sorted by filename.
+## Loads CharacterData resources from an explicit list of .tres paths.
 ## Each character is a shallow duplicate of the cached base resource so that
 ## combat state (grid_position, hp arrays, etc.) is clean while the shared
 ## sub-resources (weapons, armor) remain cached and are not duplicated.
-func _load_roster(folder_path: String) -> Array[CharacterData]:
+func _load_roster(file_paths: Array[String]) -> Array[CharacterData]:
 	var team: Array[CharacterData] = []
-	var dir := DirAccess.open(folder_path)
-	if dir == null:
-		push_error("[ServerGame] Cannot open roster folder: %s — falling back to empty team." % folder_path)
-		return team
-	var files: Array[String] = []
-	dir.list_dir_begin()
-	var file_name := dir.get_next()
-	while file_name != "":
-		if not dir.current_is_dir() and file_name.ends_with(".tres"):
-			files.append(file_name)
-		file_name = dir.get_next()
-	dir.list_dir_end()
-	files.sort()  # ensures consistent ordering (01_, 02_, 03_ prefixes)
-
-	for fname in files:
-		var full_path: String = folder_path + "/" + fname
-		# Load the cached base resource, then shallow-duplicate to get a fresh
-		# CharacterData instance with independent non-exported combat-state vars
-		# while weapon/armor sub-resources stay as shared cached references.
+	for full_path in file_paths:
 		var base_data := load(full_path) as CharacterData
 		if base_data == null:
 			push_error("[ServerGame] Failed to load character resource: %s" % full_path)
@@ -538,27 +544,19 @@ func _load_roster(folder_path: String) -> Array[CharacterData]:
 		ClassDefinitions.initialise_character_health(char_data)
 		char_data.initialise_armor_hp()
 		team.append(char_data)
-
 	return team
 
-## Scans the abilities folder and builds the ability registry (id → AbilityData).
+## Loads abilities from an explicit manifest and builds the registry (id → AbilityData).
+## DirAccess listing on res:// is unreliable in exported builds, so avoid runtime scans.
 func _load_ability_registry() -> void:
 	_ability_registry.clear()
-	var folder: String = "res://resources/abilities"
-	var dir := DirAccess.open(folder)
-	if dir == null:
-		push_error("[ServerGame] Cannot open abilities folder: %s" % folder)
-		return
-	dir.list_dir_begin()
-	var fname := dir.get_next()
-	while fname != "":
-		if not dir.current_is_dir() and fname.ends_with(".tres"):
-			var res: Resource = load(folder + "/" + fname)
-			if res is AbilityData:
-				var ab: AbilityData = res as AbilityData
-				_ability_registry[ab.entry_id] = ab
-		fname = dir.get_next()
-	dir.list_dir_end()
+	for full_path in _ABILITY_FILES:
+		var res: Resource = load(full_path)
+		if res is AbilityData:
+			var ab: AbilityData = res as AbilityData
+			_ability_registry[ab.entry_id] = ab
+		else:
+			push_error("[ServerGame] Failed to load ability resource: %s" % full_path)
 	print("[ServerGame] Loaded %d abilities." % _ability_registry.size())
 
 ## Assigns class-appropriate abilities to a character's first skill tree slot.

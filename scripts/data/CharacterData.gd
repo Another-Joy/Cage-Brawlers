@@ -192,7 +192,7 @@ func get_base_movement_speed() -> int:
 
 ## Returns character evasion: DEX_bonus + armor modifier, clamped to >= 0.
 func get_character_evasion() -> int:
-	var evasion: int = stat_bonus(dexterity)
+	var evasion: int = stat_bonus(dexterity)*5
 	if armor_slot:
 		evasion += armor_slot.evasion_modifier
 	return max(0, evasion)
@@ -235,9 +235,11 @@ func initialise_health_segments(segment_percentages: Array[float]) -> void:
 	var max_hp: float = get_max_hp()
 	segment_hp.clear()
 	segment_disabled.clear()
-	for pct in segment_percentages:
-		segment_hp.append(max_hp * pct)
-		segment_disabled.append(false)
+
+	segment_hp.append(ceil(max_hp * segment_percentages[0]))
+	segment_hp.append(ceil(max_hp * segment_percentages[1]))
+	segment_hp.append(max_hp - segment_hp[0] - segment_hp[1])  # Ensure total HP matches max_hp, avoiding rounding issues.
+	segment_disabled = [false, false, false]
 
 ## Returns the current total HP across all active (non-disabled) segments.
 func get_current_hp() -> float:

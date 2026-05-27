@@ -1,19 +1,12 @@
-[gd_resource type="Resource" script_class="SkillData" format=3]
+[gd_resource type="Resource" script_class="SkillData" load_steps=8 format=3 uid="uid://kxx0lhvhvofu"]
 
-[ext_resource type="Script" path="res://scripts/data/SkillData.gd" id="1"]
-[ext_resource type="Script" path="res://scripts/data/SkillCondition.gd" id="3"]
-[ext_resource type="Script" path="res://scripts/data/SkillEffect.gd" id="4"]
-[ext_resource type="Script" path="res://scripts/data/DiceValue.gd" id="5"]
-
-[sub_resource type="Resource" id="trigger"]
-script = ExtResource("3")
-major = 10
-minor = 0
+[ext_resource type="Script" uid="uid://pabcgltad57t" path="res://scripts/data/SkillData.gd" id="1"]
+[ext_resource type="Script" uid="uid://howacoe0n8mo" path="res://scripts/data/SkillCondition.gd" id="3"]
+[ext_resource type="Script" uid="uid://cpjntco770l7v" path="res://scripts/data/SkillEffect.gd" id="4"]
+[ext_resource type="Script" uid="uid://b0pqes2efi20q" path="res://scripts/data/DiceValue.gd" id="5"]
 
 [sub_resource type="Resource" id="dice"]
 script = ExtResource("5")
-count = 1
-sides = 6
 
 [sub_resource type="Resource" id="effect"]
 script = ExtResource("4")
@@ -22,10 +15,14 @@ target = 0
 value_type = 1
 dice = SubResource("dice")
 
+[sub_resource type="Resource" id="trigger"]
+script = ExtResource("3")
+major = 10
+
 [resource]
 script = ExtResource("1")
+triggers = Array[ExtResource("3")]([SubResource("trigger")])
+effects = Array[ExtResource("4")]([SubResource("effect")])
 entry_id = "chained_censer_heal"
 entry_name = "Chained Censer: Holy Smoke"
 description = "Whenever you receive healing, heal an additional 1d6 HP."
-triggers = [SubResource("trigger")]
-effects = [SubResource("effect")]

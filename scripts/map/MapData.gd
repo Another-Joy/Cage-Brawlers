@@ -52,15 +52,13 @@ func is_valid_tile(tile: Vector3i) -> bool:
 # ---------------------------------------------------------------------------
 
 ## Returns all tiles directly adjacent to the given tile (same Z or Z±1 via ladder).
-## Includes cardinal and diagonal horizontal neighbours plus the tile directly
+## Includes cardinal horizontal neighbours plus the tile directly
 ## above/below (Z±1) if a ladder boundary exists.
 func get_adjacent_tiles(tile: Vector3i) -> Array[Vector3i]:
 	var neighbours: Array[Vector3i] = []
 	var offsets: Array[Vector3i] = [
 		Vector3i(1, 0, 0), Vector3i(-1, 0, 0),
 		Vector3i(0, 1, 0), Vector3i(0, -1, 0),
-		Vector3i(1, 1, 0), Vector3i(1, -1, 0),
-		Vector3i(-1, 1, 0), Vector3i(-1, -1, 0),
 		Vector3i(0, 0, 1), Vector3i(0, 0, -1),  # Vertical (ladder) connections
 	]
 	for offset in offsets:

@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="CharacterData" load_steps=5 format=3 uid="uid://cy2bhoqjqu0o7"]
+
+[ext_resource type="Resource" uid="uid://bcof5spwdkyn3" path="res://resources/armor/studded_leather.tres" id="1_iebhs"]
+[ext_resource type="Resource" uid="uid://ctmqkmept3aoq" path="res://resources/classes/fighter.tres" id="2_bh0vf"]
+[ext_resource type="Resource" uid="uid://o8nd6yq7bg6p" path="res://resources/weapons/longsword.tres" id="3_xhvg5"]
+[ext_resource type="Script" uid="uid://lmya1w7ogudy" path="res://scripts/data/CharacterData.gd" id="4_4ga8c"]
+
+[resource]
+script = ExtResource("4_4ga8c")
+character_id = "char_a_fighter"
+character_name = "A-Fighter"
+character_class = 5
+class_data = ExtResource("2_bh0vf")
+strength = 16
+dexterity = 12
+constitution = 14
+wisdom = 8
+main_hand_slot = ExtResource("3_xhvg5")
+armor_slot = ExtResource("1_iebhs")
