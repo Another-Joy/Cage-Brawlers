@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=3 format=3 uid="uid://bur6hm2g3a71w"]
+
+[ext_resource type="Script" uid="uid://bb3tgc10tnlt3" path="res://scripts/data/WeaponData.gd" id="1"]
+[ext_resource type="Script" uid="uid://c34bt228rslqw" path="res://scripts/data/SkillTreeEntry.gd" id="1_c1vbc"]
+
+[resource]
+script = ExtResource("1")
+weapon_type = 1
+item_id = "handaxe"
+item_name = "Handaxe"
+description = "A light axe that can be carried in the off-hand."
+weight = 1.5
+keywords = Array[String](["Light"])

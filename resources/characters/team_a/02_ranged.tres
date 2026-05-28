@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="CharacterData" load_steps=5 format=3 uid="uid://c7mngpecftvqt"]
+
+[ext_resource type="Resource" path="res://resources/armor/rangers_robes.tres" id="1_jfeqf"]
+[ext_resource type="Resource" uid="uid://c85d3suc6bxda" path="res://resources/classes/marksman.tres" id="2_i7b1n"]
+[ext_resource type="Resource" path="res://resources/weapons/rifle.tres" id="3_eli6q"]
+[ext_resource type="Script" uid="uid://lmya1w7ogudy" path="res://scripts/data/CharacterData.gd" id="4_a7i64"]
+
+[resource]
+script = ExtResource("4_a7i64")
+character_id = "char_a_marksman"
+character_name = "A-Marksman"
+character_class = 6
+class_data = ExtResource("2_i7b1n")
+dexterity = 12
+constitution = 8
+wisdom = 14
+intelligence = 16
+main_hand_slot = ExtResource("3_eli6q")
+armor_slot = ExtResource("1_jfeqf")
+bullets_count = 20

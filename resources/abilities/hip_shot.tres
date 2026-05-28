@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/AbilityData.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/data/AbilityAction.gd" id="2"]
+[ext_resource type="Script" path="res://scripts/data/AbilityCondition.gd" id="3"]
+
+[sub_resource type="Resource" id="action_attack"]
+script = ExtResource("2")
+action_type = 0
+target_type = 2
+
+[resource]
+script = ExtResource("1")
+entry_id = "hip_shot"
+entry_name = "Hip Shot"
+description = "Fire your ranged weapon without aiming, ignoring the Aiming keyword restriction. 0d-1 damage modifier, -20% Accuracy and -4 Range."
+phases = 2
+weapon_requirements = Array[String](["crossbow", "rifle"])
+dice_tier_modifier = -1
+accuracy_modifier_percent = -20.0
+range_modifier = -4
+ignore_aiming_restriction = true
+actions = [SubResource("action_attack")]

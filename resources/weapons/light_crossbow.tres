@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="WeaponData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/WeaponData.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+item_id = "light_crossbow"
+item_name = "Light Crossbow"
+description = "A two-handed crossbow with a magazine for quick consecutive shots."
+weight = 2.5
+keywords = ["Two-Handed", "Magazine"]
+keyword_params = {"Magazine": {"capacity": 1}}
+damage_type = 1
+weapon_type = 4
+damage_dice_count = 1
+damage_dice_sides = 12
+attack_range = 10
+ammo_type = 2

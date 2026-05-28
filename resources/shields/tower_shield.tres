@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="ShieldData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/ShieldData.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+item_id = "tower_shield"
+item_name = "Tower Shield"
+description = "A massive shield providing excellent protection at the cost of mobility."
+equipment_type = 1
+weight = 5.0
+evasion_bonus = 30
+movement_modifier = -1

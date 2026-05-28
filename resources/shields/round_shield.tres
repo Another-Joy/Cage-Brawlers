@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="ShieldData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/ShieldData.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+item_id = "round_shield"
+item_name = "Round Shield"
+description = "A standard round shield offering a solid evasion bonus."
+equipment_type = 1
+weight = 3.0
+evasion_bonus = 15
+movement_modifier = 0

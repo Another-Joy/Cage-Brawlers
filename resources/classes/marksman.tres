@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="ClassData" load_steps=4 format=3 uid="uid://c85d3suc6bxda"]
+
+[ext_resource type="Script" uid="uid://c26wpl14qe7ab" path="res://scripts/data/ClassData.gd" id="1_c6r41"]
+[ext_resource type="Script" uid="uid://b0pqes2efi20q" path="res://scripts/data/DiceValue.gd" id="1_sieup"]
+
+[sub_resource type="Resource" id="Resource_12tkf"]
+script = ExtResource("1_sieup")
+count = 2
+metadata/_custom_type_script = "uid://b0pqes2efi20q"
+
+[resource]
+script = ExtResource("1_c6r41")
+class_id = "marksman"
+display_name = "Marksman"
+primary_stats = Array[int]([4])
+secondary_stats = Array[int]([3])
+hit_dice = SubResource("Resource_12tkf")
+level_health_modifier = 1
+main_damage_type = 1
+health_segment_percentages = Array[float]([0.5, 0.2, 0.3])
+weapon_categories = Array[int]([5, 4])
+metadata/_custom_type_script = "uid://c26wpl14qe7ab"

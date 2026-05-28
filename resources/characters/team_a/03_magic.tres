@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="CharacterData" load_steps=5 format=3 uid="uid://pcgyegee6bvx"]
+
+[ext_resource type="Script" uid="uid://lmya1w7ogudy" path="res://scripts/data/CharacterData.gd" id="1"]
+[ext_resource type="Resource" path="res://resources/armor/mages_kefta.tres" id="1_14iwl"]
+[ext_resource type="Resource" path="res://resources/weapons/crystal_ball.tres" id="2"]
+[ext_resource type="Resource" uid="uid://bk72kuu2dpo4m" path="res://resources/classes/mage.tres" id="4"]
+
+[resource]
+script = ExtResource("1")
+character_id = "char_a_mage"
+character_name = "A-Mage"
+character_class = 2
+class_data = ExtResource("4")
+strength = 8
+constitution = 12
+wisdom = 14
+intelligence = 16
+main_hand_slot = ExtResource("2")
+armor_slot = ExtResource("1_14iwl")

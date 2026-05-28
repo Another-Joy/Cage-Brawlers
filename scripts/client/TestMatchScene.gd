@@ -61,8 +61,14 @@ const C_HP_BORDER    := Color(0.50, 0.50, 0.50)
 # ---------------------------------------------------------------------------
 
 var _state     : Dictionary = {}
-var _input_mode: String     = "none"  # "none" | "select_move" | "select_attack"
+var _input_mode: String     = "none"  # "none" | "select_move" | "select_attack" | "select_ability_target"
 var _hovered   : Vector2i   = Vector2i(-1, -1)
+## The ability_id awaiting a target when _input_mode == "select_ability_target".
+var _selected_ability_id: String = ""
+## Collected targets so far for a multi-target ability.
+var _pending_targets: Array = []
+## How many targets the current ability still needs.
+var _pending_target_count: int = 0
 
 # ---------------------------------------------------------------------------
 # UI node references (built in _ready)
@@ -88,7 +94,7 @@ var _panel_x      : float
 # ---------------------------------------------------------------------------
 
 func _ready() -> void:
-	_map_px_wide = MAP_OFFSET.x + TILE_SIZE * 8.0
+	_map_px_wide = MAP_OFFSET.x + TILE_SIZE * 12.0
 	_panel_x     = _map_px_wide + 16.0
 	_build_ui()
 
@@ -233,7 +239,7 @@ func log_event(message: String) -> void:
 
 func _scroll_to_bottom() -> void:
 	if _scroll_log:
-		_scroll_log.scroll_vertical = int(_scroll_log.get_v_scroll_bar().max_value)
+		_scroll_log.scroll_vertical = 999999
 
 # ---------------------------------------------------------------------------
 # UI update helpers
@@ -265,18 +271,100 @@ func _rebuild_hp_bars(char_dict: Dictionary) -> void:
 		c.queue_free()
 	if char_dict.is_empty():
 		return
-	var segs     : Array = char_dict.get("hp_segments",  [])
-	var seg_maxs : Array = char_dict.get("hp_seg_max",   [])
-	var disabled : Array = char_dict.get("hp_disabled",  [])
+	var segs      : Array = char_dict.get("hp_segments",  [])
+	var seg_maxs  : Array = char_dict.get("hp_seg_max",   [])
+	var disabled  : Array = char_dict.get("hp_disabled",  [])
+	var armor_hp  : float = char_dict.get("armor_hp",     0.0)
+	var armor_max : float = char_dict.get("armor_max_hp", 0.0)
+
+	# Compute integer segment maxes: ceil for all except last (which gets remainder).
+	var total_max_int: int = 0
+	for m in seg_maxs:
+		total_max_int += int(float(m))
+	var seg_max_ints: Array = _compute_int_seg_maxes(seg_maxs)
+
+	var total_hp: float = 0.0
+	var max_hp: float = 0.0
 	for i in segs.size():
+		total_hp += float(segs[i]) if i < segs.size() else 0.0
+		max_hp += float(seg_maxs[i]) if i < seg_maxs.size() else 0.0
+
+	var vbox_hp := VBoxContainer.new()
+	vbox_hp.add_theme_constant_override("separation", 2)
+	_hbox_hp.add_child(vbox_hp)
+
+	# HP integer label (totals).
+	var hp_label := Label.new()
+	hp_label.text = "%d / %d HP" % [int(total_hp), int(max_hp)]
+	hp_label.add_theme_font_size_override("font_size", 11)
+	vbox_hp.add_child(hp_label)
+
+	# HP segment bars — reversed so index 0 (first to drain) is on the right.
+	# Each segment shows a ProgressBar plus an integer "X/Y" label underneath.
+	var bars_hbox := HBoxContainer.new()
+	bars_hbox.add_theme_constant_override("separation", 1)
+	vbox_hp.add_child(bars_hbox)
+	for i in range(segs.size() - 1, -1, -1):
+		var seg_max_i: float = float(seg_maxs[i]) if i < seg_maxs.size() else 1.0
+		var seg_max_int: int = seg_max_ints[i] if i < seg_max_ints.size() else int(seg_max_i)
+		var cur_int: int = min(int(segs[i]), seg_max_int) if segs[i] > 0.0 else 0
+		var seg_vbox := VBoxContainer.new()
+		seg_vbox.add_theme_constant_override("separation", 1)
 		var bar := ProgressBar.new()
-		bar.custom_minimum_size = Vector2(58.0, 20.0)
-		bar.max_value = seg_maxs[i] if i < seg_maxs.size() else 1.0
-		bar.value     = segs[i] if segs[i] > 0.0 else 0.0
+		bar.custom_minimum_size = Vector2(58.0, 14.0)
+		bar.show_percentage = false
+		bar.max_value = seg_max_i
+		bar.value     = float(segs[i]) if segs[i] > 0.0 else 0.0
 		if i < disabled.size() and disabled[i]:
 			bar.value    = 0.0
 			bar.modulate = Color(0.35, 0.35, 0.35)
-		_hbox_hp.add_child(bar)
+		seg_vbox.add_child(bar)
+		var lbl := Label.new()
+		lbl.text = "%d/%d" % [cur_int, seg_max_int]
+		lbl.add_theme_font_size_override("font_size", 9)
+		lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		seg_vbox.add_child(lbl)
+		bars_hbox.add_child(seg_vbox)
+
+	# Armor bar (rightmost — first to drain overall) if armor exists.
+	if armor_max > 0.0:
+		var armor_max_int: int = int(armor_max)
+		var armor_cur_int: int = int(armor_hp)
+		var armor_vbox := VBoxContainer.new()
+		armor_vbox.add_theme_constant_override("separation", 1)
+		var armor_bar := ProgressBar.new()
+		armor_bar.custom_minimum_size = Vector2(58.0, 14.0)
+		armor_bar.show_percentage = false
+		armor_bar.max_value = armor_max
+		armor_bar.value = armor_hp
+		armor_bar.modulate = Color(1.0, 0.85, 0.2)  # gold
+		armor_vbox.add_child(armor_bar)
+		var armor_lbl := Label.new()
+		armor_lbl.text = "%d/%d" % [armor_cur_int, armor_max_int]
+		armor_lbl.add_theme_font_size_override("font_size", 9)
+		armor_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		armor_vbox.add_child(armor_lbl)
+		bars_hbox.add_child(armor_vbox)
+
+## Computes integer segment maxes from float values.
+## Uses ceil for all segments except the last, which receives the remainder,
+## so the total always equals the rounded total max HP.
+func _compute_int_seg_maxes(seg_maxs: Array) -> Array:
+	if seg_maxs.is_empty():
+		return []
+	var total_int: int = 0
+	for m in seg_maxs:
+		total_int += int(roundf(float(m)))
+	# Use ceil for all but the last; last gets remainder.
+	var result: Array = []
+	var allocated: int = 0
+	for i in range(seg_maxs.size() - 1):
+		var v: int = ceili(float(seg_maxs[i]))
+		result.append(v)
+		allocated += v
+	# Last segment gets the remaining HP.
+	result.append(maxi(0, total_int - allocated))
+	return result
 
 func _rebuild_equipment_panel(char_dict: Dictionary) -> void:
 	for c in _vbox_equip.get_children():
@@ -293,11 +381,14 @@ func _rebuild_equipment_panel(char_dict: Dictionary) -> void:
 		var mh: Dictionary = equip["main_hand"]
 		var kwds: Array = mh.get("keywords", [])
 		var kw_str: String = (" [%s]" % ", ".join(kwds)) if kwds.size() > 0 else ""
-		_equip_label("  Main: %s  %s %s  r%d%s" % [
+		var rel: float = float(mh.get("reliability", 0.0))
+		var rel_str: String = (" rel:+%d%%" % int(rel * 100.0)) if rel > 0.0 else ""
+		_equip_label("  Main: %s  %s %s  r%d%s%s" % [
 			mh.get("name", "?"),
 			mh.get("damage", "?"),
 			mh.get("damage_type", "?"),
 			int(mh.get("range", 1)),
+			rel_str,
 			kw_str,
 		])
 
@@ -322,6 +413,10 @@ func _rebuild_equipment_panel(char_dict: Dictionary) -> void:
 			int(ar.get("evasion", 0)),
 			int(ar.get("movement", 0)),
 		])
+
+	var buffs: Array = char_dict.get("active_buffs", [])
+	if buffs.size() > 0:
+		_equip_label("  Buffs: %s" % ", ".join(buffs))
 
 func _equip_label(text: String) -> void:
 	var lbl := Label.new()
@@ -367,15 +462,37 @@ func _rebuild_buttons(phase: String) -> void:
 			_add_btn("Attack…", _on_attack_mode)
 			_add_btn("Skip Main",_on_skip_main)
 			_add_btn("End Turn", _on_end_turn)
+			_add_ability_buttons(2)  # PHASE_MAIN = 2
 		"ending":
 			_add_btn("Crouch",  _on_crouch)
-			_add_btn("Stand Up",_on_stand_up)
 			_add_btn("End Turn",_on_end_turn)
+			_add_ability_buttons(4)  # PHASE_ENDING = 4
 		_:
 			_add_btn("End Turn",_on_end_turn)
 
 	if _input_mode != "none":
 		_add_btn("Cancel", _on_cancel)
+
+## Adds ability buttons for abilities usable in the given phase bitmask.
+func _add_ability_buttons(phase_flag: int) -> void:
+	var active_char: Dictionary = _find_char_dict(_active_id())
+	if active_char.is_empty():
+		return
+	for ab in active_char.get("abilities", []):
+		if ab.get("phases", 0) & phase_flag == 0:
+			continue
+		var cooldown: int = ab.get("cooldown_remaining", 0)
+		var label: String = ab.get("name", "?")
+		if cooldown > 0:
+			label = "%s (%d)" % [label, cooldown]
+		var btn := Button.new()
+		btn.text = label
+		btn.disabled = cooldown > 0
+		var ability_id: String = ab.get("id", "")
+		var needs_target: bool = ab.get("needs_target", false)
+		var target_count: int = ab.get("target_count", 1)
+		btn.pressed.connect(_on_ability_pressed.bind(ability_id, needs_target, target_count))
+		_hbox_btns.add_child(btn)
 
 func _add_btn(label: String, callback: Callable) -> void:
 	var btn := Button.new()
@@ -414,11 +531,28 @@ func _on_crouch() -> void:
 
 func _on_cancel() -> void:
 	_input_mode = "none"
+	_selected_ability_id = ""
+	_pending_targets = []
+	_pending_target_count = 0
 	_rebuild_buttons(_state.get("phase", ""))
 	queue_redraw()
 
 func _on_facing_pressed(direction: int) -> void:
 	_submit({"type": "facing", "char_id": _active_id(), "direction": direction})
+
+## Called when an ability button is pressed.
+## If the ability needs a target, enters select_ability_target mode.
+## Otherwise, submits immediately (self-targeting ability).
+func _on_ability_pressed(ability_id: String, needs_target: bool, target_count: int = 1) -> void:
+	if needs_target:
+		_selected_ability_id = ability_id
+		_pending_targets = []
+		_pending_target_count = maxi(1, target_count)
+		_input_mode = "select_ability_target"
+		_rebuild_buttons(_state.get("phase", ""))
+		queue_redraw()
+	else:
+		_submit({"type": "ability", "char_id": _active_id(), "ability_id": ability_id})
 
 func _submit(action: Dictionary) -> void:
 	emit_signal("action_submitted", action)
@@ -465,6 +599,22 @@ func _unhandled_input(event: InputEvent) -> void:
 				_submit({"type": "attack", "char_id": aid, "target_id": target_id})
 				_rebuild_buttons(_state.get("phase", ""))
 				queue_redraw()
+		"select_ability_target":
+			var target_id := _char_id_at_tile(tile)
+			if not target_id.is_empty() and not _pending_targets.has(target_id):
+				_pending_targets.append(target_id)
+				if _pending_targets.size() >= _pending_target_count:
+					# All targets collected — submit.
+					_input_mode = "none"
+					_submit({"type": "ability", "char_id": aid,
+							"ability_id": _selected_ability_id,
+							"target_id": _pending_targets[0],
+							"target_ids": _pending_targets.duplicate()})
+					_selected_ability_id = ""
+					_pending_targets = []
+					_pending_target_count = 0
+					_rebuild_buttons(_state.get("phase", ""))
+					queue_redraw()
 
 # ---------------------------------------------------------------------------
 # Drawing
@@ -477,11 +627,13 @@ func _draw() -> void:
 				HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color.WHITE)
 		return
 
-	var map_d     : Dictionary = _state.get("map", {})
-	var tiles     : Array      = map_d.get("tiles", [])
-	var boundaries: Array      = map_d.get("boundaries", [])
-	var chars     : Array      = _state.get("characters", [])
-	var active_id : String     = _state.get("active_char", "")
+	var map_d             : Dictionary = _state.get("map", {})
+	var tiles             : Array      = map_d.get("tiles", [])
+	var boundaries        : Array      = map_d.get("boundaries", [])
+	var chars             : Array      = _state.get("characters", [])
+	var active_id         : String     = _state.get("active_char", "")
+	var movable_tiles     : Array      = _state.get("movable_tiles", [])
+	var attackable_targets: Array      = _state.get("attackable_targets", [])
 
 	# --- Draw tiles ──────────────────────────────────────────────────────
 	for t in tiles:
@@ -496,16 +648,30 @@ func _draw() -> void:
 
 		# Selection mode tint
 		if _input_mode == "select_move":
-			draw_rect(rect, C_SEL_MOVE, true)
+			# Highlight only tiles that are actually reachable.
+			for mt in movable_tiles:
+				if mt["x"] == t["x"] and mt["y"] == t["y"]:
+					draw_rect(rect, C_SEL_MOVE, true)
+					break
 		elif _input_mode == "select_attack":
-			# Highlight tiles occupied by enemy characters
+			# Highlight only tiles occupied by attackable enemies.
+			for cd in chars:
+				if not attackable_targets.has(cd["id"]):
+					continue
+				var cp: Dictionary = cd["pos"]
+				if cp["x"] == t["x"] and cp["y"] == t["y"]:
+					draw_rect(rect, C_SEL_ATTACK, true)
+		elif _input_mode == "select_ability_target":
+			# Highlight all occupied tiles (the server validates eligibility)
 			for cd in chars:
 				var cp: Dictionary = cd["pos"]
 				if cp["x"] == t["x"] and cp["y"] == t["y"]:
 					var active_char_dict: Dictionary = _find_char_dict(active_id)
 					var active_player: String = active_char_dict.get("player_id", "")
-					if cd["player_id"] != active_player:
-						draw_rect(rect, C_SEL_ATTACK, true)
+					if cd["player_id"] == active_player:
+						draw_rect(rect, Color(0.20, 0.60, 1.00, 0.28), true)  # blue for allies
+					else:
+						draw_rect(rect, C_SEL_ATTACK, true)  # red for enemies
 
 	# --- Draw boundaries ─────────────────────────────────────────────────
 	for bd in boundaries:
@@ -614,9 +780,11 @@ func _draw_character(cd: Dictionary, active_id: String) -> void:
 	_draw_hp_bars(cd, tile_origin)
 
 func _draw_hp_bars(cd: Dictionary, tile_origin: Vector2) -> void:
-	var segs     : Array = cd.get("hp_segments", [])
-	var seg_maxs : Array = cd.get("hp_seg_max",  [])
-	var disabled : Array = cd.get("hp_disabled", [])
+	var segs      : Array = cd.get("hp_segments", [])
+	var seg_maxs  : Array = cd.get("hp_seg_max",  [])
+	var disabled  : Array = cd.get("hp_disabled", [])
+	var armor_hp  : float = cd.get("armor_hp",     0.0)
+	var armor_max : float = cd.get("armor_max_hp", 0.0)
 
 	if segs.is_empty():
 		return
@@ -624,6 +792,8 @@ func _draw_hp_bars(cd: Dictionary, tile_origin: Vector2) -> void:
 	var total_max : float = 0.0
 	for m in seg_maxs:
 		total_max += float(m)
+	if armor_max > 0.0:
+		total_max += armor_max
 	if total_max <= 0.0:
 		return
 
@@ -632,18 +802,35 @@ func _draw_hp_bars(cd: Dictionary, tile_origin: Vector2) -> void:
 	var bar_total : float = float(TILE_SIZE - CHAR_PAD * 2)
 	var gap       : float = 1.0
 
+	# Draw segments right-to-left: index 0 is the rightmost (first to drain).
+	# Collect segments in draw order (last index first, then armor rightmost).
+	var draw_segs: Array = []
+	for i in range(segs.size() - 1, -1, -1):
+		draw_segs.append({"cur": float(segs[i]),
+						   "max": float(seg_maxs[i]) if i < seg_maxs.size() else 0.0,
+						   "disabled": (i < disabled.size() and disabled[i]),
+						   "armor": false})
+	if armor_max > 0.0:
+		draw_segs.append({"cur": armor_hp, "max": armor_max, "disabled": false, "armor": true})
+
 	var seg_x_offset : float = 0.0
-	for i in segs.size():
-		var sm : float = float(seg_maxs[i]) if i < seg_maxs.size() else 0.0
+	for seg in draw_segs:
+		var sm : float = seg["max"]
 		var sw : float = bar_total * (sm / total_max) - gap
 
 		var seg_rect_bg := Rect2(bar_x + seg_x_offset, bar_y, sw, float(HP_BAR_H))
 
-		if i < disabled.size() and disabled[i]:
+		if seg["disabled"]:
 			draw_rect(seg_rect_bg, C_HP_DISABLED, true)
+		elif seg["armor"]:
+			draw_rect(seg_rect_bg, Color(0.4, 0.3, 0.0), true)
+			var fill_frac : float = (seg["cur"] / sm) if sm > 0.0 else 0.0
+			if fill_frac > 0.0:
+				var fill_rect := Rect2(bar_x + seg_x_offset, bar_y, sw * fill_frac, float(HP_BAR_H))
+				draw_rect(fill_rect, Color(1.0, 0.85, 0.2), true)
 		else:
 			draw_rect(seg_rect_bg, C_HP_BG, true)
-			var fill_frac : float = (float(segs[i]) / sm) if sm > 0.0 else 0.0
+			var fill_frac : float = (seg["cur"] / sm) if sm > 0.0 else 0.0
 			if fill_frac > 0.0:
 				var fill_rect := Rect2(bar_x + seg_x_offset, bar_y, sw * fill_frac, float(HP_BAR_H))
 				var hp_color  : Color = C_HP_FULL.lerp(C_HP_LOW, 1.0 - fill_frac)

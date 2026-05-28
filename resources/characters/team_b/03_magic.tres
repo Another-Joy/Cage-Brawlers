@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="CharacterData" load_steps=6 format=3 uid="uid://bodis1ulvo3vb"]
+
+[ext_resource type="Resource" uid="uid://boq7jhf6lht0o" path="res://resources/armor/simple_gabardine.tres" id="1_q5bcx"]
+[ext_resource type="Resource" uid="uid://btm2njihrnpr6" path="res://resources/classes/cleric.tres" id="2_hg2r0"]
+[ext_resource type="Resource" path="res://resources/weapons/ancient_tome.tres" id="3_53utr"]
+[ext_resource type="Resource" path="res://resources/buffs/chained_censer.tres" id="4_rori7"]
+[ext_resource type="Script" uid="uid://lmya1w7ogudy" path="res://scripts/data/CharacterData.gd" id="5_d30u7"]
+
+[resource]
+script = ExtResource("5_d30u7")
+character_id = "char_b_cleric"
+character_name = "B-Cleric"
+character_class = 4
+class_data = ExtResource("2_hg2r0")
+strength = 8
+constitution = 12
+wisdom = 16
+intelligence = 14
+main_hand_slot = ExtResource("3_53utr")
+off_hand_slot = ExtResource("4_rori7")
+armor_slot = ExtResource("1_q5bcx")

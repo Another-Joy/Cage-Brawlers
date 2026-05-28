@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="CharacterData" load_steps=5 format=3 uid="uid://boyq2k8nqjos6"]
+
+[ext_resource type="Resource" uid="uid://dv61h1lipheul" path="res://resources/armor/bandit_outfit.tres" id="1_y4cix"]
+[ext_resource type="Resource" uid="uid://b6dli3kvmm48v" path="res://resources/classes/rogue.tres" id="2_q3cdw"]
+[ext_resource type="Resource" path="res://resources/weapons/dagger.tres" id="3_2gxr7"]
+[ext_resource type="Script" uid="uid://lmya1w7ogudy" path="res://scripts/data/CharacterData.gd" id="4_30gc6"]
+
+[resource]
+script = ExtResource("4_30gc6")
+character_id = "char_b_rogue"
+character_name = "B-Rogue"
+character_class = 3
+class_data = ExtResource("2_q3cdw")
+dexterity = 16
+wisdom = 14
+main_hand_slot = ExtResource("3_2gxr7")
+off_hand_slot = ExtResource("3_2gxr7")
+armor_slot = ExtResource("1_y4cix")

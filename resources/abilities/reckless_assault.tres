@@ -1,0 +1,33 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/AbilityData.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/data/AbilityAction.gd" id="2"]
+[ext_resource type="Script" path="res://scripts/data/AbilityCondition.gd" id="3"]
+
+[sub_resource type="Resource" id="action_attack_1"]
+script = ExtResource("2")
+action_type = 0
+target_type = 2
+reliability_modifier_percent = 0.0
+
+[sub_resource type="Resource" id="action_attack_2"]
+script = ExtResource("2")
+action_type = 0
+target_type = 2
+reliability_modifier_percent = -50.0
+
+[sub_resource type="Resource" id="action_debuff"]
+script = ExtResource("2")
+action_type = 4
+target_type = 0
+string_param = "melee_weakness"
+
+[resource]
+script = ExtResource("1")
+entry_id = "reckless_assault"
+entry_name = "Reckless Assault"
+description = "Make double the number of attacks. The extra attacks have -50% Reliability. Until your next turn you are weak against all Melee damage."
+phases = 2
+weapon_requirements = Array[String](["axe"])
+cooldown_turns = 2
+actions = [SubResource("action_attack_1"), SubResource("action_attack_2"), SubResource("action_debuff")]

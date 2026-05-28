@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="BuffItemData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/BuffItemData.gd" id="1"]
+[ext_resource type="Resource" path="res://resources/skills/crypt_candle_skill.tres" id="2"]
+
+[resource]
+script = ExtResource("1")
+item_id = "crypt_candle"
+item_name = "Crypt Candle"
+description = "A cursed candle that flickers with dark energy. Whenever you deal Magical or Ability damage, deal +1d4. Activates twice for Magic Abilities."
+equipment_type = 2
+weight = 0.5
+granted_skills = [ExtResource("2")]

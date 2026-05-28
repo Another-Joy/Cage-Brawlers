@@ -1,0 +1,26 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/AbilityData.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/data/AbilityAction.gd" id="2"]
+
+[sub_resource type="Resource" id="action_attack"]
+script = ExtResource("2")
+action_type = 0
+target_type = 2
+
+[sub_resource type="Resource" id="action_heal"]
+script = ExtResource("2")
+action_type = 2
+target_type = 0
+heal_from_attack_fraction = 0.5
+
+[resource]
+script = ExtResource("1")
+entry_id = "drain_life"
+entry_name = "Drain Life"
+description = "Siphon life force from the target. Attack with +40% Reliability, then heal yourself for half the damage dealt."
+phases = 2
+weapon_requirements = Array[String](["ball"])
+cooldown_turns = 3
+reliability_modifier_percent = 40.0
+actions = [SubResource("action_attack"), SubResource("action_heal")]

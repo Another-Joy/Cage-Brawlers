@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="ArmorData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/ArmorData.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+armor_type = 2
+armor_value = 24
+evasion_modifier = -50
+movement_modifier = -2
+ammo_slots_capacity = 0
+allows_arrows = false
+potion_slots = 1
+item_id = "metal_full_plate"
+item_name = "Full Plate"
+description = "Maximum protection at the cost of mobility. Only the best-trained warriors can move effectively in full plate."
+equipment_type = 3
+weight = 22.0

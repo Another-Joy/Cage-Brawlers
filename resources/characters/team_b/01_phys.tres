@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="CharacterData" load_steps=6 format=3 uid="uid://dy02x3snxfr1b"]
+
+[ext_resource type="Resource" uid="uid://d4iqqqivbidcv" path="res://resources/armor/ring_mail.tres" id="1_3qc2g"]
+[ext_resource type="Resource" uid="uid://dtb68eglsxoyc" path="res://resources/classes/brawler.tres" id="2_uxr0s"]
+[ext_resource type="Resource" path="res://resources/weapons/battleaxe.tres" id="3_cid5d"]
+[ext_resource type="Resource" uid="uid://bur6hm2g3a71w" path="res://resources/weapons/handaxe.tres" id="4_dji6l"]
+[ext_resource type="Script" uid="uid://lmya1w7ogudy" path="res://scripts/data/CharacterData.gd" id="5_fclkk"]
+
+[resource]
+script = ExtResource("5_fclkk")
+character_id = "char_b_brawler"
+character_name = "B-Brawler"
+character_class = 7
+class_data = ExtResource("2_uxr0s")
+strength = 14
+constitution = 16
+main_hand_slot = ExtResource("3_cid5d")
+off_hand_slot = ExtResource("4_dji6l")
+armor_slot = ExtResource("1_3qc2g")

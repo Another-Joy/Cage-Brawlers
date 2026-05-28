@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="WeaponData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/WeaponData.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+item_id = "greatsword"
+item_name = "Greatsword"
+description = "A massive two-handed blade that deals heavy damage."
+weight = 6.0
+keywords = ["Two-Handed"]
+damage_type = 0
+weapon_type = 0
+damage_dice_count = 2
+damage_dice_sides = 6
+attack_range = 1
+ammo_type = 0

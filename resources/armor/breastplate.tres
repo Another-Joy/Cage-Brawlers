@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="ArmorData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/ArmorData.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+armor_type = 1
+armor_value = 10
+evasion_modifier = -20
+movement_modifier = 0
+ammo_slots_capacity = 8
+allows_arrows = false
+potion_slots = 2
+item_id = "metal_breastplate"
+item_name = "Breastplate"
+description = "A metal chest piece balancing protection and freedom of movement."
+equipment_type = 3
+weight = 10.0
