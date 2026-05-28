@@ -35,6 +35,7 @@ const C_TILE_BORDER  := Color(0.30, 0.30, 0.34)
 const C_HOVER        := Color(1.00, 1.00, 1.00, 0.10)
 const C_SEL_MOVE     := Color(0.20, 0.90, 0.20, 0.22)
 const C_SEL_ATTACK   := Color(0.95, 0.20, 0.20, 0.28)
+const C_FOG          := Color(0.00, 0.00, 0.00, 0.55)  # fog-of-war overlay
 
 # Boundary colours
 const C_WALL         := Color(0.08, 0.05, 0.04)
@@ -69,6 +70,15 @@ var _selected_ability_id: String = ""
 var _pending_targets: Array = []
 ## How many targets the current ability still needs.
 var _pending_target_count: int = 0
+
+## The player_id owned by this client (set by Main.gd before the scene is added).
+var local_player_id: String = ""
+
+## Visible tiles for this player (tile key: "x,y" → true).
+var _visible_tiles: Dictionary = {}
+
+## The char dict under the currently hovered tile (empty if none).
+var _hover_char_dict: Dictionary = {}
 
 # ---------------------------------------------------------------------------
 # UI node references (built in _ready)
@@ -226,6 +236,16 @@ func _build_ui() -> void:
 ## Receives a full state snapshot from the server and refreshes everything.
 func apply_state(state: Dictionary) -> void:
 	_state = state
+	# Sync local_player_id from server if not yet set.
+	var sid: String = state.get("my_player_id", "")
+	if sid != "" and local_player_id == "":
+		local_player_id = sid
+	# Rebuild the visible-tile lookup.
+	_visible_tiles.clear()
+	for vt in state.get("visible_tiles", []):
+		_visible_tiles["%d,%d" % [vt["x"], vt["y"]]] = true
+	# Update hover char in case a char moved off the hovered tile.
+	_hover_char_dict = _char_dict_at_tile(_hovered)
 	_update_ui()
 	queue_redraw()
 
@@ -264,13 +284,24 @@ func _update_ui() -> void:
 	_rebuild_hp_bars(active_char)
 	_rebuild_equipment_panel(active_char)
 	_rebuild_turn_order()
-	_rebuild_buttons(phase)
+	# Only show action buttons when it is our turn.
+	var is_my_turn: bool = (not active_char.is_empty()) and (active_char.get("player_id", "") == local_player_id)
+	_rebuild_buttons(phase if is_my_turn else "")
 
 func _rebuild_hp_bars(char_dict: Dictionary) -> void:
 	for c in _hbox_hp.get_children():
 		c.queue_free()
 	if char_dict.is_empty():
 		return
+
+	# Enemy char: server sends only a coarse health label.
+	if char_dict.get("player_id", "") != local_player_id:
+		var state_lbl := Label.new()
+		state_lbl.text = char_dict.get("hp_state", "?")
+		state_lbl.add_theme_font_size_override("font_size", 12)
+		_hbox_hp.add_child(state_lbl)
+		return
+
 	var segs      : Array = char_dict.get("hp_segments",  [])
 	var seg_maxs  : Array = char_dict.get("hp_seg_max",   [])
 	var disabled  : Array = char_dict.get("hp_disabled",  [])
@@ -570,6 +601,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		var tile := _screen_to_tile((event as InputEventMouseMotion).position)
 		if tile != _hovered:
 			_hovered = tile
+			_hover_char_dict = _char_dict_at_tile(tile)
 			queue_redraw()
 		return
 
@@ -673,6 +705,10 @@ func _draw() -> void:
 					else:
 						draw_rect(rect, C_SEL_ATTACK, true)  # red for enemies
 
+		# Fog of war: darken tiles not visible to this player.
+		if not _visible_tiles.is_empty() and not _visible_tiles.has("%d,%d" % [t["x"], t["y"]]):
+			draw_rect(rect, C_FOG, true)
+
 	# --- Draw boundaries ─────────────────────────────────────────────────
 	for bd in boundaries:
 		_draw_boundary(bd)
@@ -680,6 +716,10 @@ func _draw() -> void:
 	# --- Draw characters ─────────────────────────────────────────────────
 	for cd in chars:
 		_draw_character(cd, active_id)
+
+	# --- Hover popup ─────────────────────────────────────────────────────
+	if not _hover_char_dict.is_empty():
+		_draw_hover_popup(_hover_char_dict)
 
 func _draw_boundary(bd: Dictionary) -> void:
 	var a  : Dictionary = bd["a"]
@@ -780,6 +820,18 @@ func _draw_character(cd: Dictionary, active_id: String) -> void:
 	_draw_hp_bars(cd, tile_origin)
 
 func _draw_hp_bars(cd: Dictionary, tile_origin: Vector2) -> void:
+	var bar_x    : float = tile_origin.x + float(CHAR_PAD)
+	var bar_y    : float = tile_origin.y + float(TILE_SIZE) - float(HP_BAR_H) - float(HP_BAR_MARGIN)
+	var bar_total: float = float(TILE_SIZE - CHAR_PAD * 2)
+
+	# Enemy char: only a coarse state string is available.
+	if cd.has("hp_state"):
+		var font  := ThemeDB.fallback_font
+		var state : String = cd.get("hp_state", "?")
+		draw_string(font, Vector2(bar_x, bar_y), state,
+				HORIZONTAL_ALIGNMENT_LEFT, bar_total, 8, Color(1.0, 0.8, 0.8))
+		return
+
 	var segs      : Array = cd.get("hp_segments", [])
 	var seg_maxs  : Array = cd.get("hp_seg_max",  [])
 	var disabled  : Array = cd.get("hp_disabled", [])
@@ -797,10 +849,7 @@ func _draw_hp_bars(cd: Dictionary, tile_origin: Vector2) -> void:
 	if total_max <= 0.0:
 		return
 
-	var bar_x     : float = tile_origin.x + float(CHAR_PAD)
-	var bar_y     : float = tile_origin.y + float(TILE_SIZE) - float(HP_BAR_H) - float(HP_BAR_MARGIN)
-	var bar_total : float = float(TILE_SIZE - CHAR_PAD * 2)
-	var gap       : float = 1.0
+	var gap: float = 1.0
 
 	# Draw segments right-to-left: index 0 is the rightmost (first to drain).
 	# Collect segments in draw order (last index first, then armor rightmost).
@@ -839,6 +888,73 @@ func _draw_hp_bars(cd: Dictionary, tile_origin: Vector2) -> void:
 		draw_rect(seg_rect_bg, C_HP_BORDER, false, 0.8)
 		seg_x_offset += sw + gap
 
+## Draws a hover popup near the hovered tile showing char class, health, and equipment.
+func _draw_hover_popup(cd: Dictionary) -> void:
+	var font   := ThemeDB.fallback_font
+	var fsize  : int = 11
+	var line_h : float = float(fsize) + 3.0
+	var padding: float = 6.0
+
+	# --- Build text lines ─────────────────────────────────────────────
+	var lines: Array[String] = []
+	var is_mine: bool = (cd.get("player_id", "") == local_player_id)
+
+	lines.append(cd.get("name", "?"))
+	var class_names: Array = ["Warrior","Ranger","Mage","Rogue","Cleric","Fighter","Marksman","Brawler"]
+	var class_idx: int = int(cd.get("class", 0))
+	var class_str: String = class_names[class_idx] if class_idx < class_names.size() else "?"
+	lines.append("Class: %s" % class_str)
+
+	# Health
+	if is_mine:
+		var segs    : Array = cd.get("hp_segments", [])
+		var seg_maxs: Array = cd.get("hp_seg_max",  [])
+		var cur: float = 0.0
+		var mx: float  = 0.0
+		for i in segs.size():
+			cur += float(segs[i])
+			mx  += float(seg_maxs[i]) if i < seg_maxs.size() else 0.0
+		lines.append("HP: %d / %d" % [int(cur), int(mx)])
+	else:
+		lines.append("Status: %s" % cd.get("hp_state", "?"))
+
+	# Equipment
+	var equip: Dictionary = cd.get("equipment", {})
+	if equip.has("main_hand"):
+		var mh: Dictionary = equip["main_hand"]
+		lines.append("Main: %s (%s)" % [mh.get("name","?"), mh.get("damage","?")])
+	if equip.has("off_hand"):
+		var oh: Dictionary = equip["off_hand"]
+		lines.append("Off: %s" % oh.get("name","?"))
+	if equip.has("armor"):
+		var ar: Dictionary = equip["armor"]
+		lines.append("Armor: %s (AV %d)" % [ar.get("name","?"), ar.get("av", 0)])
+
+	# --- Position popup near the hovered tile ─────────────────────────
+	var tile_origin: Vector2 = _tile_pos(_hovered.x, _hovered.y)
+	var popup_w: float = 160.0
+	var popup_h: float = padding * 2.0 + line_h * float(lines.size())
+	# Prefer to the right; clamp to viewport.
+	var px: float = tile_origin.x + float(TILE_SIZE) + 4.0
+	var py: float = tile_origin.y
+	var vp_size: Vector2 = get_viewport_rect().size
+	if px + popup_w > vp_size.x - _panel_x:
+		px = tile_origin.x - popup_w - 4.0
+	py = clampf(py, 0.0, vp_size.y - popup_h)
+
+	# Background
+	draw_rect(Rect2(px, py, popup_w, popup_h), Color(0.0, 0.0, 0.0, 0.80), true)
+	draw_rect(Rect2(px, py, popup_w, popup_h), Color(0.6, 0.6, 0.6, 0.60), false, 1.0)
+
+	# Text lines
+	var team_color: Color = C_TEAM_A if cd.get("player_id","") == "player_a" else C_TEAM_B
+	var first: bool = true
+	for i in lines.size():
+		var col: Color = team_color if first else Color.WHITE
+		first = false
+		draw_string(font, Vector2(px + padding, py + padding + line_h * float(i) + float(fsize)),
+				lines[i], HORIZONTAL_ALIGNMENT_LEFT, popup_w - padding * 2.0, fsize, col)
+
 # ---------------------------------------------------------------------------
 # Coordinate helpers
 # ---------------------------------------------------------------------------
@@ -875,3 +991,14 @@ func _char_id_at_tile(tile: Vector2i) -> String:
 		if p["x"] == tile.x and p["y"] == tile.y:
 			return cd["id"]
 	return ""
+
+## Returns the full char dictionary for the character occupying the given tile,
+## or an empty dictionary if no character is there.
+func _char_dict_at_tile(tile: Vector2i) -> Dictionary:
+	if tile.x < 0 or tile.y < 0:
+		return {}
+	for cd in _state.get("characters", []):
+		var p: Dictionary = cd["pos"]
+		if p["x"] == tile.x and p["y"] == tile.y:
+			return cd
+	return {}
