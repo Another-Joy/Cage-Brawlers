@@ -900,6 +900,7 @@ func _draw_hover_popup(cd: Dictionary) -> void:
 	var is_mine: bool = (cd.get("player_id", "") == local_player_id)
 
 	lines.append(cd.get("name", "?"))
+	# Order mirrors CharacterData.CharacterClass enum (CharacterData.gd).
 	var class_names: Array = ["Warrior","Ranger","Mage","Rogue","Cleric","Fighter","Marksman","Brawler"]
 	var class_idx: int = int(cd.get("class", 0))
 	var class_str: String = class_names[class_idx] if class_idx < class_names.size() else "?"
