@@ -202,7 +202,7 @@ func _test_handaxe() -> void:
 
 func _test_crystal_ball_one_handed() -> void:
     # Crystal Ball: 1d6 one-handed.
-    # Magic accuracy uses (INT+WIS)/2: stat_bonus(18)*2/2*5 = 4*5=20 → accuracy=100.
+    # Magic accuracy uses (INT+WIS)/2 * 5: (stat_bonus(18) + stat_bonus(18))/2 * 5 = (4+4)/2 * 5 = 20 → accuracy=100.
     var resolver := _resolver()
     var attacker := _char(Vector3i(0, 0, 0), 10, 10, STAT_HIT, STAT_HIT) # WIS=INT=18
     attacker.off_hand_slot = EquipmentData.new()
@@ -237,8 +237,8 @@ func _test_crystal_ball_two_handed() -> void:
 
 func _test_physical_damage_range() -> void:
     # Battleaxe 1d8, STR=10 (damage bonus = 0).
-    # All hits must land in [dice_count + stat_bonus, dice_count * dice_sides + stat_bonus].
-    # The bounds are read from the AttackResult fields to remain robust to stat changes.
+    # All hits must land in [dice_count * 1 + stat_bonus, dice_count * dice_sides + stat_bonus]
+    # (each die contributes at least 1). Bounds are read from AttackResult fields.
     var resolver := _resolver()
     var attacker := _char(Vector3i(0, 0, 0), 10, STAT_HIT)   # STR=10, DEX=18
     var target   := _char(Vector3i(1, 0, 0))
