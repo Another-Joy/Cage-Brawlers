@@ -19,6 +19,7 @@ boot_splash/bg_color=Color(0.1, 0.1, 0.1, 1)
 [autoload]
 
 NetworkManager="*res://scripts/autoloads/NetworkManager.gd"
+RosterManager="*res://scripts/autoloads/RosterManager.gd"
 
 [display]
 
