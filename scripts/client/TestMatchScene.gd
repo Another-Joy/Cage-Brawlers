@@ -38,7 +38,7 @@ const C_SEL_ATTACK   := Color(0.95, 0.20, 0.20, 0.28)
 const C_FOG          := Color(0.00, 0.00, 0.00, 0.55)  # fog-of-war overlay
 
 # Boundary colours
-const C_WALL         := Color(0.08, 0.05, 0.04)
+const C_WALL         := Color(1.00, 1.00, 1.00)  # white so walls are visible in fog
 const C_BARRICADE    := Color(0.90, 0.70, 0.10)
 const C_LADDER       := Color(0.65, 0.40, 0.10)
 
@@ -49,6 +49,19 @@ const C_KNOCKED      := Color(0.45, 0.45, 0.45)
 const C_DEAD         := Color(0.10, 0.10, 0.10)
 const C_ACTIVE_RING  := Color(1.00, 0.92, 0.10)   # yellow ring for active char
 const C_CROUCHED     := Color(0.80, 0.80, 0.10, 0.50)  # yellow tint overlay
+const C_FACING       := Color(1.00, 1.00, 1.00, 0.90)  # white arrow for facing direction
+
+# Facing direction vectors matching LineOfSightManager.DIRECTION_VECTORS (grid coords = screen coords).
+const FACING_VECS: Array = [
+	Vector2(0,  1),   # 0 North (+Y)
+	Vector2(1,  1),   # 1 NE
+	Vector2(1,  0),   # 2 East (+X)
+	Vector2(1, -1),   # 3 SE
+	Vector2(0, -1),   # 4 South (-Y)
+	Vector2(-1, -1),  # 5 SW
+	Vector2(-1, 0),   # 6 West (-X)
+	Vector2(-1, 1),   # 7 NW
+]
 
 # HP bar colours
 const C_HP_FULL      := Color(0.15, 0.85, 0.15)
@@ -815,6 +828,19 @@ func _draw_character(cd: Dictionary, active_id: String) -> void:
 	var label    : String = cd["name"].substr(0, 1).to_upper()
 	var text_pos : Vector2 = sq_rect.get_center() + Vector2(-fsize * 0.3, fsize * 0.4)
 	draw_string(font, text_pos, label, HORIZONTAL_ALIGNMENT_LEFT, -1, fsize, Color.WHITE)
+
+	# Facing direction indicator: small triangle arrow from center toward facing direction.
+	if state_int != CharacterData.StateFlag.DEAD:
+		var facing_idx: int = int(cd.get("facing", 0)) % FACING_VECS.size()
+		var fv: Vector2 = (FACING_VECS[facing_idx] as Vector2).normalized()
+		var center: Vector2 = sq_rect.get_center()
+		var arrow_len: float = sq_w * 0.30
+		var arrow_half_base: float = sq_w * 0.12
+		var tip: Vector2 = center + fv * arrow_len
+		var perp: Vector2 = Vector2(-fv.y, fv.x)
+		var base_l: Vector2 = center + perp * arrow_half_base
+		var base_r: Vector2 = center - perp * arrow_half_base
+		draw_colored_polygon(PackedVector2Array([tip, base_l, base_r]), C_FACING)
 
 	# HP bars
 	_draw_hp_bars(cd, tile_origin)

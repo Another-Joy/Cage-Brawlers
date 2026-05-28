@@ -148,6 +148,11 @@ func add_char(char_dict: Dictionary) -> void:
 
 ## Converts a CharacterData resource to a JSON-safe Dictionary.
 func char_to_dict(cd: CharacterData) -> Dictionary:
+	var ab_ids: Array = []
+	for tree in cd.skill_trees:
+		for entry in tree:
+			if entry is AbilityData:
+				ab_ids.append((entry as AbilityData).entry_id)
 	return {
 		"character_id":    cd.character_id,
 		"character_name":  cd.character_name,
@@ -167,7 +172,7 @@ func char_to_dict(cd: CharacterData) -> Dictionary:
 		"bolts_count":     cd.bolts_count,
 		"arrows_count":    cd.arrows_count,
 		"potions_count":   cd.potions_count,
-		"ability_ids":     [],
+		"ability_ids":     ab_ids,
 	}
 
 ## Reconstructs a CharacterData resource from a saved Dictionary.

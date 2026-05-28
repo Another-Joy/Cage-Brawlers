@@ -94,8 +94,10 @@ func _refresh_ip() -> void:
 	var addresses: PackedStringArray = IP.get_local_addresses()
 	var ip_lines: Array = []
 	for addr in addresses:
-		# Skip loopback and IPv6 for clarity; show everything else.
-		if addr == "127.0.0.1" or addr == "::1" or ":" in addr:
+		# Skip IPv6, loopback (127.x.x.x), and link-local (169.254.x.x).
+		if ":" in addr:
+			continue
+		if addr.begins_with("127.") or addr.begins_with("169.254."):
 			continue
 		ip_lines.append(addr)
 	if ip_lines.is_empty():

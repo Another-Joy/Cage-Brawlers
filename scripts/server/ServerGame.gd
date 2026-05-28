@@ -386,6 +386,7 @@ func _serialize_state_for_player(player_id: String) -> Dictionary:
 						movable_tiles.append({"x": tile.x, "y": tile.y})
 			if phase_str == "main" and active_char.main_hand_slot != null:
 				var atk_range: int = active_char.main_hand_slot.attack_range
+				var is_ranged: bool = (active_char.main_hand_slot.damage_type == WeaponData.DamageType.RANGED)
 				for other in combat._all_characters:
 					if other.character_id == active_char_id:
 						continue
@@ -395,6 +396,10 @@ func _serialize_state_for_player(player_id: String) -> Dictionary:
 							+ abs(active_char.grid_position.y - other.grid_position.y)
 					if dist <= atk_range:
 						if _get_player_id_for_char(other) != active_player_id:
+							if is_ranged:
+								var los_result: Dictionary = _los_manager.check_ranged_target(active_char, other, _map_data)
+								if not los_result.get("valid", false):
+									continue
 							attackable_targets.append(other.character_id)
 
 	return {
@@ -437,9 +442,18 @@ func _serialize_char(char_data: CharacterData, player_id: String, full_info: boo
 	var seg_hp: Array = []
 	var seg_max: Array = []
 	var seg_disabled: Array = []
-	for i in char_data.segment_hp.size():
+	# Compute seg_max using the same ceil/remainder pattern as
+	# CharacterData.initialise_health_segments() to keep the values consistent.
+	var seg_count: int = char_data.segment_hp.size()
+	if seg_count > 0 and not pcts.is_empty():
+		var allocated: float = 0.0
+		for i in range(seg_count - 1):
+			var m: float = ceil(max_hp * (pcts[i] if i < pcts.size() else 0.33))
+			seg_max.append(m)
+			allocated += m
+		seg_max.append(max_hp - allocated)
+	for i in seg_count:
 		seg_hp.append(char_data.segment_hp[i])
-		seg_max.append(max_hp * (pcts[i] if i < pcts.size() else 0.33))
 		seg_disabled.append(char_data.segment_disabled[i])
 
 	# ── Equipment snapshot ─────────────────────────────────────────────────

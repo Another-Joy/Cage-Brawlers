@@ -40,6 +40,8 @@ func _ready() -> void:
 func _is_server_mode() -> bool:
 	if OS.has_feature("dedicated_server"):
 		return true
+	if OS.has_feature("server"):
+		return true
 	if DisplayServer.get_name() == "headless":
 		return true
 	return "--server" in OS.get_cmdline_args()
