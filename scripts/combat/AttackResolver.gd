@@ -264,6 +264,29 @@ func _resolve_magical(
 # ---------------------------------------------------------------------------
 # Accuracy & Damage Rolling
 # ---------------------------------------------------------------------------
+#
+# Bundled DiceValues system
+# ─────────────────────────
+# Each attack is a bundle of one or more DiceValue expressions that all hit
+# or miss together.  The bundle consists of:
+#
+#   1. The weapon's base dice (from get_effective_damage_dice), converted to
+#      a DiceValue with the weapon's base_reliability baked in.
+#   2. Any DICE-type ADD_DAMAGE passive skill effects that fire for this
+#      attacker/weapon combination (e.g. Crypt Candle's +1d4).
+#   3. An optional per-action bonus DiceValue from AbilityAction.bonus_dice.
+#
+# General reliability comes from: weapon.base_reliability +
+#   ability.reliability_modifier_percent/100 + action.reliability_modifier_percent/100.
+#
+# Each bundled DiceValue's effective reliability is clamped:
+#   clampf(general_reliability + dv.reliability, 0.0, 1.0)
+#
+# The stat damage bonus is applied once (as an integer addend) after all
+# dice have been summed.  A stat_bonus_multiplier float (default 1.0) is
+# reserved for future skills that amplify the stat contribution.
+#
+# Flat passive skill bonuses are added last.
 
 func _roll_accuracy_and_damage(
 		attacker: CharacterData,
@@ -287,12 +310,30 @@ func _roll_accuracy_and_damage(
 		ability_acc_modifier += int(action.accuracy_modifier_percent)
 		ability_reliability_bonus += action.reliability_modifier_percent / 100.0
 
+	# ── Build SkillContext for passive skill evaluation ───────────────────────
+	# For trigger matching: build a context with ON_ATTACK first (for accuracy
+	# skills), then we switch to ON_DEAL_DAMAGE for damage skill dice.
+	var attack_ctx: SkillProcessor.SkillContext = SkillProcessor.SkillContext.new(
+		attacker,
+		SkillCondition.MajorCondition.ON_ATTACK,
+		attacker,
+		target,
+		weapon)
+
+	var deal_ctx: SkillProcessor.SkillContext = SkillProcessor.SkillContext.new(
+		attacker,
+		SkillCondition.MajorCondition.ON_DEAL_DAMAGE,
+		attacker,
+		target,
+		weapon)
+
 	# ── Accuracy formula ─────────────────────────────────────────────────────
-	# final_accuracy = BASE(80) + stat_bonus + situational + ability − evasion
-	var accuracy_stat_bonus: int = _get_accuracy_bonus(attacker, weapon)*5
+	var accuracy_stat_bonus: int = _get_accuracy_bonus(attacker, weapon) * 5
+	var skill_acc_bonus: int = SkillProcessor.get_accuracy_bonus(attack_ctx)
 	var target_evasion: int = target.get_total_evasion()
 	var final_accuracy: int = (BASE_ACCURACY
 			+ accuracy_stat_bonus
+			+ skill_acc_bonus
 			+ base_accuracy_modifier
 			+ ability_acc_modifier
 			- target_evasion)
@@ -308,52 +349,79 @@ func _roll_accuracy_and_damage(
 	# ── Hit / crit determination (d100) ──────────────────────────────────────
 	var roll: int = _dice_roller.roll_d100()
 	result.roll_d100 = roll
-	# Hit if roll ≤ clamped hit-chance (min of final_accuracy and 100).
 	result.hit = roll <= mini(100, maxi(0, final_accuracy))
-	# Any accuracy above 100 spills over as crit chance.
 	if final_accuracy > 100:
 		result.crit = roll <= (final_accuracy - 100)
 
-	# ── Damage ────────────────────────────────────────────────────────────────
+	# ── Damage (only on hit) ──────────────────────────────────────────────────
 	if result.hit:
-		# Versatile: use two-handed dice when no off-hand item is equipped.
-		var is_two_handed_grip: bool = weapon.is_versatile() and attacker.off_hand_slot == null
-		var dice: Array[int] = weapon.get_effective_damage_dice(is_two_handed_grip)
+		# General reliability factor shared by all bundled dice in this attack.
+		var general_reliability: float = weapon.base_reliability + ability_reliability_bonus + _get_reliability_bonus(attacker, weapon)
 
-		# Apply ability-level dice modifiers to the weapon's base dice expression.
+		# Build the dice bundle.
+		# Slot 1: weapon base dice, converted to a temporary DiceValue.
+		var is_two_handed_grip: bool = weapon.is_versatile() and attacker.off_hand_slot == null
+		var raw_dice: Array[int] = weapon.get_effective_damage_dice(is_two_handed_grip)
+
+		# Apply ability-level dice expression modifiers.
 		if skill_or_ability is AbilityData:
 			var ability: AbilityData = skill_or_ability as AbilityData
-			dice[0] = AbilityData.apply_dice_count_modifier(dice[0], ability.dice_count_modifier)
-			dice[1] = AbilityData.apply_dice_tier_modifier(dice[1], ability.dice_tier_modifier)
+			raw_dice[0] = AbilityData.apply_dice_count_modifier(raw_dice[0], ability.dice_count_modifier)
+			raw_dice[1] = AbilityData.apply_dice_tier_modifier(raw_dice[1], ability.dice_tier_modifier)
 
-		var damage_stat_bonus: int = _get_damage_bonus(attacker, weapon)
+		var weapon_dv: DiceValue = DiceValue.new()
+		weapon_dv.count = raw_dice[0]
+		weapon_dv.sides = raw_dice[1]
+		weapon_dv.reliability = 0.0  # general_reliability covers the weapon's base
 
-		# Reliability: weapon base + ability modifier, clamped to [0.0, 1.0].
-		var reliability: float = clampf(weapon.base_reliability + ability_reliability_bonus + _get_reliability_bonus(attacker, weapon), 0.0, 1.0)
-		var uses_rel: bool = reliability > 0.0
-		result.reliability = reliability
+		# Slot 2+: passive skill bonus dice (e.g. Crypt Candle +1d4).
+		var skill_dice_effects: Array = SkillProcessor.collect_bonus_damage_dice(deal_ctx)
 
-		var raw_roll: float = float(_dice_roller.roll_dice(dice[0], dice[1], uses_rel, reliability))
-
-		# Add action-level bonus dice on top of the weapon roll (e.g. achilles_bane +1d4).
-		var bonus_dice_roll: float = 0.0
+		# Slot last: per-action bonus_dice (e.g. Achilles Bane +1d4).
+		var action_dv: DiceValue = null
 		if action != null and action.bonus_dice != null:
-			bonus_dice_roll = float(action.bonus_dice.roll(_dice_roller, false, 0.0))
+			action_dv = action.bonus_dice
 
-		var raw_damage: float = raw_roll + damage_stat_bonus + bonus_dice_roll
+		# Roll each bundled DiceValue; they all benefit from general_reliability.
+		var total_roll: float = 0.0
 
-		# Apply critical hit multiplier AFTER all other effects and modifiers.
+		var weapon_eff_rel: float = clampf(general_reliability + weapon_dv.reliability, 0.0, 1.0)
+		total_roll += float(_dice_roller.roll_dice(weapon_dv.count, weapon_dv.sides,
+				weapon_eff_rel > 0.0, weapon_eff_rel))
+
+		var bonus_dice_roll: float = 0.0
+		for se in skill_dice_effects:
+			var dv: DiceValue = (se as SkillEffect).dice
+			var eff_rel: float = clampf(general_reliability + dv.reliability, 0.0, 1.0)
+			var r: float = float(_dice_roller.roll_dice(dv.count, dv.sides, eff_rel > 0.0, eff_rel))
+			bonus_dice_roll += r
+			total_roll += r
+
+		if action_dv != null:
+			var eff_rel: float = clampf(general_reliability + action_dv.reliability, 0.0, 1.0)
+			var r: float = float(_dice_roller.roll_dice(action_dv.count, action_dv.sides,
+					eff_rel > 0.0, eff_rel))
+			bonus_dice_roll += r
+			total_roll += r
+
+		# Stat damage bonus applied once (multiplier reserved for future skills).
+		const STAT_BONUS_MULTIPLIER: float = 1.0
+		var damage_stat_bonus: int = _get_damage_bonus(attacker, weapon)
+		var flat_skill_bonus: int = SkillProcessor.get_damage_bonus(deal_ctx)
+
+		var raw_damage: float = total_roll + int(damage_stat_bonus * STAT_BONUS_MULTIPLIER) + flat_skill_bonus
+
+		# Apply critical hit multiplier after all other effects.
 		if result.crit:
 			raw_damage *= 1.0 + CRIT_DAMAGE_PERCENT / 100.0
 
-		# Armor is now a separate HP bar handled in apply_damage; no flat reduction here.
-		# Populate damage debug breakdown.
-		result.dmg_dice_count = dice[0]
-		result.dmg_dice_sides = dice[1]
-		result.dmg_raw_roll = raw_roll
+		# Populate debug breakdown.
+		result.dmg_dice_count = weapon_dv.count
+		result.dmg_dice_sides = weapon_dv.sides
+		result.dmg_raw_roll = total_roll
 		result.dmg_stat_bonus = damage_stat_bonus
 		result.dmg_bonus_dice = bonus_dice_roll
-		# Armor absorption logged in ServerGame after apply_damage is called.
+		result.reliability = clampf(general_reliability, 0.0, 1.0)
 
 		result.damage_dealt = raw_damage
 
@@ -387,18 +455,18 @@ func _get_damage_bonus(attacker: CharacterData, weapon: WeaponData) -> int:
 			return (attacker.stat_bonus(attacker.wisdom) + attacker.stat_bonus(attacker.intelligence)) / 2
 	return 0
 
-func _get_reliability_bonus(attacker: CharacterData, weapon: WeaponData) -> int:
+func _get_reliability_bonus(attacker: CharacterData, weapon: WeaponData) -> float:
 	match weapon.damage_type:
 		WeaponData.DamageType.PHYSICAL:
 			# Finesse weapons use Dexterity for the reliability bonus.
 			if weapon.is_finesse():
 				return attacker.stat_bonus(attacker.dexterity) * 0.05
-			return 0
+			return 0.0
 		WeaponData.DamageType.RANGED:
-			return 0
+			return 0.0
 		WeaponData.DamageType.MAGICAL:
-			return 0
-	return 0
+			return 0.0
+	return 0.0
 
 # ---------------------------------------------------------------------------
 # Ammo Consumption

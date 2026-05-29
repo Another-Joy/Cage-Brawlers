@@ -452,7 +452,8 @@ func _execute_riposte(riposte_user: CharacterData, original_attacker: CharacterD
 func process_ability(
 		character: CharacterData,
 		ability: AbilityData,
-		target: CharacterData = null) -> bool:
+		target: CharacterData = null,
+		secondary_target: CharacterData = null) -> bool:
 
 	if character != _active_character:
 		return false
@@ -503,7 +504,7 @@ func process_ability(
 
 	# Execute each action in order.
 	for action in ability.actions:
-		_execute_ability_action(character, action, target, ability, context)
+		_execute_ability_action(character, action, target, ability, context, secondary_target)
 
 	# Apply cooldown if this ability has one.
 	if ability.cooldown_turns > 0:
@@ -570,12 +571,14 @@ func _evaluate_ability_condition(
 ## Executes a single AbilityAction for a character.
 ## parent_ability carries ability-level modifiers applied to attacks and heals.
 ## context is a shared Dictionary for intra-ability data (e.g. last_attack_damage).
+## secondary_target is an optional second target (e.g. the ally to heal in Drain Life).
 func _execute_ability_action(
 		character: CharacterData,
 		action: AbilityAction,
 		target: CharacterData,
 		parent_ability: AbilityData,
-		context: Dictionary) -> void:
+		context: Dictionary,
+		secondary_target: CharacterData = null) -> void:
 
 	match action.action_type:
 		AbilityAction.ActionType.STAND_UP:
@@ -616,7 +619,7 @@ func _execute_ability_action(
 			context["last_attack_damage"] = total_damage
 
 		AbilityAction.ActionType.HEAL:
-			var heal_target: CharacterData = _resolve_action_target(character, action, target)
+			var heal_target: CharacterData = _resolve_action_target(character, action, target, secondary_target)
 			if heal_target == null:
 				return
 			var heal_amount: float = float(action.flat_bonus)
@@ -657,16 +660,24 @@ func _execute_ability_action(
 		_:
 			pass  # GRANT_BONUS and other future action types remain stubs.
 
-## Resolves the target CharacterData for an AbilityAction given the ability's TargetType.
+## Resolves the target CharacterData for an AbilityAction.
+## Uses action.target_index to pick between primary_target (index 0) and
+## secondary_target (index 1) for multi-target abilities such as Drain Life.
+## Falls back gracefully: if the requested indexed target is null, returns
+## the primary declared_target instead.
 func _resolve_action_target(
 		character: CharacterData,
 		action: AbilityAction,
-		declared_target: CharacterData) -> CharacterData:
+		declared_target: CharacterData,
+		secondary_target: CharacterData = null) -> CharacterData:
 
 	match action.target_type:
 		AbilityAction.TargetType.SELF:
 			return character
 		AbilityAction.TargetType.ALLY, AbilityAction.TargetType.ENEMY, AbilityAction.TargetType.ANY:
+			# For multi-target abilities, target_index selects which supplied target to use.
+			if action.target_index == 1 and secondary_target != null:
+				return secondary_target
 			return declared_target
 	return declared_target
 

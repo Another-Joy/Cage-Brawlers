@@ -146,6 +146,8 @@ func _build_team_from_roster(dicts: Array, player_id: String) -> Array[Character
 		# Inject the abilities the player selected in the lobby.
 		var ability_ids: Array = dict.get("ability_ids", [])
 		_inject_abilities(cd, ability_ids)
+		# Inject passive skills granted by equipped items (e.g. Crypt Candle).
+		_inject_equipment_skills(cd)
 		team.append(cd)
 	return team
 
@@ -249,9 +251,12 @@ func handle_action(peer_id: int, action: Dictionary) -> void:
 			if ability == null:
 				_send_event(peer_id, "WARN: unknown ability_id '%s'" % ability_id)
 				return
-			var target_id: String = action.get("target_id", "")
+			var target_ids: Array = action.get("target_ids", [])
+			var target_id: String = target_ids[0] if target_ids.size() > 0 else action.get("target_id", "")
 			var target: CharacterData = _char_lookup.get(target_id, null) if target_id != "" else null
-			if combat.process_ability(char_data, ability, target):
+			var secondary_id: String = target_ids[1] if target_ids.size() > 1 else ""
+			var secondary_target: CharacterData = _char_lookup.get(secondary_id, null) if secondary_id != "" else null
+			if combat.process_ability(char_data, ability, target, secondary_target):
 				log_msg = "%s used %s." % [char_data.character_name, ability.entry_name]
 				if ability.is_main_ability():
 					combat.advance_to_ending_phase()
@@ -536,24 +541,37 @@ func _serialize_char(char_data: CharacterData, player_id: String, full_info: boo
 	return base
 
 ## Returns a coarse health descriptor for enemy characters.
+## States are segment-based:
+##   Unscathed        – no segment damage at all
+##   Bruised          – first segment has taken damage but is not depleted
+##   Bloodied         – first segment fully depleted (second still has HP)
+##   Heavily Bloodied – second segment fully depleted (last segment remains)
+##   Downed           – no HP / knocked_down
 func _get_hp_state_label(cd: CharacterData) -> String:
 	if cd.state_flag == CharacterData.StateFlag.DEAD:
 		return "Dead"
 	if cd.state_flag == CharacterData.StateFlag.KNOCKED_DOWN:
-		return "Knocked Down"
-	var current: float = cd.get_current_hp()
-	var max_hp: float = cd.get_max_hp()
-	if max_hp <= 0.0:
+		return "Downed"
+	if cd.segment_hp.is_empty():
 		return "Unknown"
-	var ratio: float = current / max_hp
-	if ratio > 0.75:
-		return "Unscathed"
-	elif ratio > 0.50:
-		return "Bruised"
-	elif ratio > 0.25:
-		return "Bloodied"
-	else:
+	# Count how many segments are fully disabled (depleted and locked out).
+	var disabled_count: int = 0
+	for i in cd.segment_disabled.size():
+		if cd.segment_disabled[i]:
+			disabled_count += 1
+	if disabled_count >= 2:
 		return "Heavily Bloodied"
+	if disabled_count >= 1:
+		return "Bloodied"
+	# No segment is fully disabled — check whether the first segment has taken any damage.
+	var pct_0: float = 0.34
+	if cd.class_data != null and not cd.class_data.health_segment_percentages.is_empty():
+		pct_0 = cd.class_data.health_segment_percentages[0]
+	var first_seg_full: float = cd.get_max_hp() * pct_0
+	var first_seg_current: float = cd.segment_hp[0] if cd.segment_hp.size() > 0 else 0.0
+	if first_seg_current < first_seg_full:
+		return "Bruised"
+	return "Unscathed"
 
 func _serialize_map() -> Dictionary:
 	var tile_list: Array = []
@@ -716,6 +734,20 @@ func _inject_class_defaults(char_data: CharacterData) -> void:
 			ability_id = "regenerate"
 	if ability_id != "" and _ability_registry.has(ability_id):
 		char_data.skill_trees[0].append(_ability_registry[ability_id])
+
+## Collects granted_skills from all currently equipped items and appends them
+## to skill_trees[1] (attribute tree). This ensures passive skills such as
+## Crypt Candle's "Dark Flicker" are active when SkillProcessor evaluates them.
+func _inject_equipment_skills(char_data: CharacterData) -> void:
+	var slots: Array = [char_data.main_hand_slot, char_data.off_hand_slot, char_data.armor_slot]
+	for slot in slots:
+		if slot == null:
+			continue
+		var equip: EquipmentData = slot as EquipmentData
+		if equip == null:
+			continue
+		for entry in equip.granted_skills:
+			char_data.skill_trees[1].append(entry)
 
 # ---------------------------------------------------------------------------
 # Helpers

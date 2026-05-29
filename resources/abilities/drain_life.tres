@@ -11,16 +11,18 @@ target_type = 2
 [sub_resource type="Resource" id="action_heal"]
 script = ExtResource("2")
 action_type = 2
-target_type = 0
+target_type = 1
+target_index = 1
 heal_from_attack_fraction = 0.5
 
 [resource]
 script = ExtResource("1")
 entry_id = "drain_life"
 entry_name = "Drain Life"
-description = "Siphon life force from the target. Attack with +40% Reliability, then heal yourself for half the damage dealt."
+description = "Siphon life force from an enemy, then channel it into an ally. Attack with +40% Reliability, then heal a chosen ally for half the damage dealt."
 phases = 2
 weapon_requirements = Array[String](["ball"])
 cooldown_turns = 3
 reliability_modifier_percent = 40.0
+target_count = 2
 actions = [SubResource("action_attack"), SubResource("action_heal")]

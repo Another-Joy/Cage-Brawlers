@@ -194,11 +194,13 @@ func _build_ui() -> void:
 	_grid_facing.add_theme_constant_override("h_separation", 3)
 	_grid_facing.add_theme_constant_override("v_separation", 3)
 	_grid_facing.visible = false
-	# Directions in reading order: NW(7) N(0) NE(1) / W(6) · E(2) / SW(5) S(4) SE(3)
+	# Directions in reading order (visual grid → data direction index):
+	# Screen +Y is DOWN, so visual-N maps to data-S (4) and vice-versa.
+	# NW(5) N(4) NE(3) / W(6) · E(2) / SW(7) S(0) SE(1)
 	var facing_entries: Array = [
-		["NW", 7], ["N", 0], ["NE", 1],
+		["NW", 5], ["N", 4], ["NE", 3],
 		["W",  6], ["·", -1], ["E", 2],
-		["SW", 5], ["S", 4], ["SE", 3],
+		["SW", 7], ["S", 0], ["SE", 1],
 	]
 	for entry in facing_entries:
 		if entry[1] == -1:
