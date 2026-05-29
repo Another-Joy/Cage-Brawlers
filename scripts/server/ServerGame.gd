@@ -567,7 +567,7 @@ func _get_hp_state_label(cd: CharacterData) -> String:
 	var pct_0: float = 0.34
 	if cd.class_data != null and not cd.class_data.health_segment_percentages.is_empty():
 		pct_0 = cd.class_data.health_segment_percentages[0]
-	var first_seg_full: float = cd.get_max_hp() * pct_0
+	var first_seg_full: float = ceil(cd.get_max_hp() * pct_0)
 	var first_seg_current: float = cd.segment_hp[0] if cd.segment_hp.size() > 0 else 0.0
 	if first_seg_current < first_seg_full:
 		return "Bruised"
