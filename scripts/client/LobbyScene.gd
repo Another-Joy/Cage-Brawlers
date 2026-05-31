@@ -918,7 +918,7 @@ func on_waiting_for_opponent() -> void:
 # Signals — Party toggle
 # ---------------------------------------------------------------------------
 
-func _on_party_toggle(idx: int, cb: CheckBox, _pressed: bool) -> void:
+func _on_party_toggle(_pressed: bool, idx: int, cb: CheckBox) -> void:
 	var err: String = RosterManager.toggle_party_member(idx)
 	if err != "":
 		# Revert the checkbox
@@ -946,7 +946,7 @@ func _on_class_changed(option_idx: int) -> void:
 	RosterManager.update_char(_editor_idx, cd)
 	_refresh_derived_stats()
 
-func _on_stat_changed(stat_idx: int, _value: float) -> void:
+func _on_stat_changed(_value: float, stat_idx: int) -> void:
 	if _loading or _editor_idx < 0:
 		return
 	var stat_keys: Array[String] = ["strength", "dexterity", "constitution", "wisdom", "intelligence"]
@@ -998,7 +998,7 @@ func _on_armor_changed(_idx: int) -> void:
 	RosterManager.update_char(_editor_idx, cd)
 	_refresh_derived_stats()
 
-func _on_ammo_changed(key: String, value: float) -> void:
+func _on_ammo_changed(value: float, key: String) -> void:
 	if _loading or _editor_idx < 0:
 		return
 	var cd: Dictionary = RosterManager.roster[_editor_idx].duplicate()
@@ -1009,7 +1009,7 @@ func _on_ammo_changed(key: String, value: float) -> void:
 # Signals — Editor skills
 # ---------------------------------------------------------------------------
 
-func _on_skill_toggled(skill_idx: int, pressed: bool) -> void:
+func _on_skill_toggled(pressed: bool, skill_idx: int) -> void:
 	if _loading or _editor_idx < 0:
 		return
 	var cd: Dictionary = RosterManager.roster[_editor_idx].duplicate()
