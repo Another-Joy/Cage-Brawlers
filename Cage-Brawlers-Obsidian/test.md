@@ -1,23 +1,19 @@
-Reckless assault, regenerate, hip shot and riposte are all rejecting. seems to be this error:
-SCRIPT ERROR: Invalid call to function 'get_name' in base 'GDScript'. Expected 0 argument(s).
-          at: WeaponData.get_weapon_type_name (res://scripts/data/WeaponData.gd:119)
-          GDScript backtrace (most recent call first):
-              [0] get_weapon_type_name (res://scripts/data/WeaponData.gd:119)
-              [1] process_ability (res://scripts/combat/CombatManager.gd:488)
-              [2] handle_action (res://scripts/server/ServerGame.gd:206)
-              [3] rpc_submit_action (res://scripts/Main.gd:104)
-    
+Saving Stats, skills and abilities still does not work, they are simply reverted to the original.
 
-Remake the Chars stats. 
+selecting the way a character faces after moving has north and south switched, as well as northeast and southeast, and northwest and southwest.
 
-Their total stats cannot exceed 60, and each stat must be between 8 and 16. Make them in accordance to what would be logical for their classes.
+The attack resolver will need to be heavily rewritten. 
+First, each attack is a bundle of dices (possibly different), not a single type of dice. These extra DiceValues can come from various sources, and act as a sum or reduction to the attack's damage.
+Each of these DiceValues can have their own reliability, but there is also a general reliability that applies to all DiceValues in an attack. Sum them if tehre is a general and a specific (easy to implement, since if there is no specific it defaults to 0).
+All these DiceValues are part of the same attack, so they do not hit or miss individually, but do so as a group.
+Currently, skills like Crypt Candle have no use since their bonuses are never triggered or added. Fix that. this is one of the reasons why having Multiple DiceValues is important: a Mage attacking with a Tome uses 1d8 from the Tome, + 1d4 fro the Candle, increasing the damage greatly. Note that the stat bonus is only applied once (but leave this as a multipliers, so a skill that increases the stat bonus' effect can eventually exist)
 
-I need a way to see what tiles are actually movable to / which enemies can be attacked. All distances are calculated as manhattan distances.
+The health states should be:
+Unscathed - No health damage
+Bruised - First segment damaged
+Bloodied - First segment depleted
+Heavily Bloodied - Second segment depleted
+Downed - No Health
 
-The rogue had 100 hp in the test game, which is a bug. find it.
 
-The HP bars still show percentage. Make them show actual ints, instead of having onyl a small int at the top. the int at the top can stay for totals. HP is distributed along segments by giving the left most segment priority (e.g: a char with 10 HP and segments 0.15, 0.25 0.60 will have segments HP as 2/3/5)
-
-The context of the attack must also show reliability for dices
-
-Note that acuracy bonuses form stats are +5% per ppoint. I have already fixed some of them (by putting a x5 on some)
+You are allowed to make breaking changes. Patch up any errors from the interactions between the updated AttackResolver and other parts, prioritising the new AttackResolver Implementation

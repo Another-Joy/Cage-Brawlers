@@ -1,9 +1,18 @@
-[gd_resource type="Resource" script_class="SkillData" format=3]
+[gd_resource type="Resource" script_class="SkillData" load_steps=9 format=3 uid="uid://dy4x7kfc2vnr8"]
 
-[ext_resource type="Script" path="res://scripts/data/SkillData.gd" id="1"]
-[ext_resource type="Script" path="res://scripts/data/SkillCondition.gd" id="3"]
-[ext_resource type="Script" path="res://scripts/data/SkillEffect.gd" id="4"]
-[ext_resource type="Script" path="res://scripts/data/DiceValue.gd" id="5"]
+[ext_resource type="Script" uid="uid://pabcgltad57t" path="res://scripts/data/SkillData.gd" id="1"]
+[ext_resource type="Script" uid="uid://howacoe0n8mo" path="res://scripts/data/SkillCondition.gd" id="3"]
+[ext_resource type="Script" uid="uid://cpjntco770l7v" path="res://scripts/data/SkillEffect.gd" id="4"]
+[ext_resource type="Script" uid="uid://b0pqes2efi20q" path="res://scripts/data/DiceValue.gd" id="5"]
+
+[sub_resource type="Resource" id="dice"]
+script = ExtResource("5")
+sides = 4
+
+[sub_resource type="Resource" id="effect"]
+script = ExtResource("4")
+value_type = 1
+dice = SubResource("dice")
 
 [sub_resource type="Resource" id="trigger_magical"]
 script = ExtResource("3")
@@ -15,22 +24,10 @@ script = ExtResource("3")
 major = 2
 minor = 13
 
-[sub_resource type="Resource" id="dice"]
-script = ExtResource("5")
-count = 1
-sides = 4
-
-[sub_resource type="Resource" id="effect"]
-script = ExtResource("4")
-effect_type = 0
-target = 2
-value_type = 1
-dice = SubResource("dice")
-
 [resource]
 script = ExtResource("1")
+triggers = Array[ExtResource("3")]([SubResource("trigger_magical"), SubResource("trigger_ability")])
+effects = Array[ExtResource("4")]([SubResource("effect")])
 entry_id = "crypt_candle_bonus"
 entry_name = "Crypt Candle: Dark Flicker"
 description = "Whenever you deal Magical or Ability damage, deal an additional 1d4. (Activates twice if triggered by a Magic Ability.)"
-triggers = [SubResource("trigger_magical"), SubResource("trigger_ability")]
-effects = [SubResource("effect")]

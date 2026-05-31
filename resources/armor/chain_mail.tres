@@ -1,18 +1,19 @@
-[gd_resource type="Resource" script_class="ArmorData" format=3]
+[gd_resource type="Resource" script_class="ArmorData" load_steps=3 format=3 uid="uid://cm3bewbdyliki"]
 
-[ext_resource type="Script" path="res://scripts/data/ArmorData.gd" id="1"]
+[ext_resource type="Script" uid="uid://deqg5ptr388ad" path="res://scripts/data/ArmorData.gd" id="1"]
+[ext_resource type="Script" uid="uid://c34bt228rslqw" path="res://scripts/data/SkillTreeEntry.gd" id="1_0unnv"]
 
 [resource]
 script = ExtResource("1")
-armor_type = 1
+armor_type = 2
 armor_value = 18
 evasion_modifier = -30
-movement_modifier = -1
-ammo_slots_capacity = 4
+movement_modifier = -2
+ammo_slots_capacity = 0
 allows_arrows = false
-potion_slots = 1
+potion_slots = 0
 item_id = "metal_chain"
 item_name = "Chain Mail"
 description = "Interlocked metal rings offering solid protection with moderate mobility restrictions."
 equipment_type = 3
-weight = 12.0
+weight = 16.0

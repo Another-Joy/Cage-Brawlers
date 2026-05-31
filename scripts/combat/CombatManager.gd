@@ -623,6 +623,7 @@ func _execute_ability_action(
 			if heal_target == null:
 				return
 			var heal_amount: float = float(action.flat_bonus)
+			var heal_dice_logs: Array[String] = []
 			# Weapon-dice-based heal (e.g. Regenerate: 2× weapon damage roll).
 			if action.uses_weapon_dice and character.main_hand_slot != null:
 				var weapon: WeaponData = character.main_hand_slot
@@ -635,17 +636,31 @@ func _execute_ability_action(
 				var reliability: float = clampf(weapon.base_reliability + rel_bonus, 0.0, 1.0)
 				var weapon_roll: float = float(_dice_roller.roll_dice(
 						dice[0], dice[1], reliability > 0.0, reliability))
+				heal_dice_logs.append("weapon %dd%d=%.0f rel:%d%%" % [
+					dice[0], dice[1], weapon_roll, int(roundf(reliability * 100.0))])
 				heal_amount += weapon_roll * action.weapon_dice_multiplier
 			elif action.bonus_dice != null:
 				# Fallback: fixed bonus dice (legacy / non-weapon-derived heals).
-				heal_amount += float(action.bonus_dice.roll(_dice_roller, action.uses_reliability, 0.0))
+				var bonus_roll: float = float(action.bonus_dice.roll(_dice_roller, action.uses_reliability, 0.0))
+				heal_dice_logs.append("ability %dd%d=%.0f rel:%d%%" % [
+					action.bonus_dice.count,
+					action.bonus_dice.sides,
+					bonus_roll,
+					int(roundf(action.bonus_dice.reliability * 100.0)),
+				])
+				heal_amount += bonus_roll
 			# Fraction of last attack damage (e.g. Drain Life heals 50% of damage dealt).
 			if action.heal_from_attack_fraction > 0.0:
 				heal_amount += context.get("last_attack_damage", 0.0) * action.heal_from_attack_fraction
 			heal_target.apply_damage(-heal_amount)
 			if heal_amount > 0.0:
-				emit_signal("combat_event", "%s heals %s for %.0f HP" % [
-						character.character_id, heal_target.character_id, heal_amount])
+				var dice_log: String = " | dice[%s]" % ", ".join(heal_dice_logs) if not heal_dice_logs.is_empty() else ""
+				emit_signal("combat_event", "%s [%s] -> %s: HEAL%s => final_heal=%.0f" % [
+						character.character_id,
+						parent_ability.entry_name,
+						heal_target.character_id,
+						dice_log,
+						heal_amount])
 
 		AbilityAction.ActionType.APPLY_BUFF:
 			var buff_target: CharacterData = _resolve_action_target(character, action, target)
@@ -695,18 +710,39 @@ func _format_attack_event(
 	var label: String = r.weapon_name if r.weapon_name != "" else "weapon"
 	if context_label != "":
 		label = "%s/%s" % [label, context_label]
+	var acc_breakdown: String = (
+		"acc %d = base %d + stat %d + skill %d + ctx %d + ability %d - evasion %d"
+		% [
+			r.final_accuracy,
+			r.acc_base,
+			r.acc_stat_bonus,
+			r.acc_skill_bonus,
+			r.acc_context_mod,
+			r.acc_ability_mod,
+			r.acc_evasion,
+		]
+	)
+	var dice_parts: Array[String] = []
+	for d in r.dice_roll_details:
+		dice_parts.append("%s %dd%d=%.0f rel:%d%%" % [
+			str(d.get("source", "dice")),
+			int(d.get("count", 0)),
+			int(d.get("sides", 0)),
+			float(d.get("roll", 0.0)),
+			int(roundf(float(d.get("reliability", 0.0)) * 100.0)),
+		])
+	var dice_log: String = " | dice[%s]" % ", ".join(dice_parts) if not dice_parts.is_empty() else ""
 	if not r.hit:
-		return "%s [%s] → %s: MISS (acc %d%%, roll %d)" % [
+		return "%s [%s] -> %s: MISS (%s, d100=%d)%s" % [
 				attacker.character_id, label, target.character_id,
-				r.final_accuracy, r.roll_d100]
+				acc_breakdown, r.roll_d100, dice_log]
 	var hit_type: String = "CRIT!" if r.crit else "Hit"
-	var rel_str: String = " [rel:%.0f%%]" % (r.reliability * 100.0) if r.reliability > 0.0 else ""
-	var bonus_str: String = " +bonus>%.0f" % r.dmg_bonus_dice if r.dmg_bonus_dice != 0.0 else ""
-	return "%s [%s] → %s: %s (acc %d%%, roll %d) → %.0f dmg (%dd%d%s>%.0f +%d stat%s)" % [
+	var crit_tag: String = " crit" if r.crit else ""
+	var armor_str: String = " armor_absorb=%.0f" % r.armor_absorbed if r.armor_absorbed > 0.0 else ""
+	return "%s [%s] -> %s: %s%s (%s, d100=%d)%s | total_dice=%.0f + stat=%d + flat_bonus=%.0f%s => final_damage=%.0f" % [
 			attacker.character_id, label, target.character_id,
-			hit_type, r.final_accuracy, r.roll_d100,
-			r.damage_dealt, r.dmg_dice_count, r.dmg_dice_sides,
-			rel_str, r.dmg_raw_roll, r.dmg_stat_bonus, bonus_str]
+			hit_type, crit_tag, acc_breakdown, r.roll_d100,
+			dice_log, r.dmg_raw_roll, r.dmg_stat_bonus, r.dmg_bonus_dice, armor_str, r.damage_dealt]
 
 ## Decrements all active ability cooldowns for the given character by 1.
 ## Called at the end of the character's turn so that a cooldown of 2 means

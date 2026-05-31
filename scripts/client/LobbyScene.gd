@@ -98,6 +98,8 @@ var _party_count_lbl:  Label
 var _char_list_vbox:   VBoxContainer
 var _editor_root:      Control   # scrollable editor area
 var _editor_inner:     VBoxContainer  # inside the scroll
+var _btn_new_char:     Button
+var _btn_save_char:    Button
 
 var _ed_name:          LineEdit
 var _ed_class:         OptionButton
@@ -109,6 +111,8 @@ var _ed_armor:         OptionButton
 var _ed_equip_err:     Label
 var _ed_skills:        Array = []   # Array[CheckBox]
 var _ed_skill_err:     Label
+var _delete_dialog:    ConfirmationDialog
+var _delete_target_idx: int = -1
 
 # ---------------------------------------------------------------------------
 # Editor state
@@ -169,6 +173,12 @@ func _load_resources() -> void:
 func _build_ui() -> void:
 	var layer := CanvasLayer.new()
 	add_child(layer)
+
+	_delete_dialog = ConfirmationDialog.new()
+	_delete_dialog.title = "Delete Character"
+	_delete_dialog.dialog_text = "Delete this character from your local roster?"
+	_delete_dialog.confirmed.connect(_on_delete_char_confirmed)
+	layer.add_child(_delete_dialog)
 
 	var root_panel := PanelContainer.new()
 	root_panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -282,6 +292,12 @@ func _build_roster_tab() -> Control:
 	lbl_roster.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	roster_hdr.add_child(lbl_roster)
 
+	_btn_new_char = Button.new()
+	_btn_new_char.text = "New"
+	_btn_new_char.tooltip_text = "Create a new local character"
+	_btn_new_char.pressed.connect(_on_new_char_pressed)
+	roster_hdr.add_child(_btn_new_char)
+
 	_party_count_lbl = Label.new()
 	_party_count_lbl.text = "Party: 0/3"
 	_party_count_lbl.add_theme_font_size_override("font_size", 12)
@@ -371,6 +387,12 @@ func _load_editor(cd: Dictionary) -> void:
 	_ed_name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_ed_name.text_changed.connect(_on_name_changed)
 	name_hbox.add_child(_ed_name)
+
+	_btn_save_char = Button.new()
+	_btn_save_char.text = "Save"
+	_btn_save_char.tooltip_text = "Save all changes for this character"
+	_btn_save_char.pressed.connect(_on_save_char_pressed)
+	name_hbox.add_child(_btn_save_char)
 
 	# -- Class --------------------------------------------------------------
 	var class_hbox := HBoxContainer.new()
@@ -752,6 +774,13 @@ func _make_char_card(idx: int, cd: Dictionary) -> Control:
 	edit_btn.pressed.connect(_select_char.bind(idx))
 	hbox.add_child(edit_btn)
 
+	# Delete button
+	var del_btn := Button.new()
+	del_btn.text = "Delete"
+	del_btn.custom_minimum_size = Vector2(62.0, 0.0)
+	del_btn.pressed.connect(_on_delete_char_pressed.bind(idx))
+	hbox.add_child(del_btn)
+
 	return outer
 
 func _class_label(char_class_int: int) -> String:
@@ -1009,6 +1038,105 @@ func _on_skill_toggled(skill_idx: int, pressed: bool) -> void:
 	RosterManager.update_char(_editor_idx, cd)
 
 # ---------------------------------------------------------------------------
+# Signals — Editor save/new
+# ---------------------------------------------------------------------------
+
+func _on_save_char_pressed() -> void:
+	_save_current_character()
+
+func _on_new_char_pressed() -> void:
+	var new_idx: int = RosterManager.create_new_char()
+	_editor_idx = new_idx
+	_refresh_char_list()
+	if new_idx >= 0 and new_idx < RosterManager.roster.size():
+		_load_editor(RosterManager.roster[new_idx])
+		_play_status.text = "Created new character. Edit and save as needed."
+
+func _on_delete_char_pressed(idx: int) -> void:
+	if idx < 0 or idx >= RosterManager.roster.size():
+		return
+	_delete_target_idx = idx
+	var char_name: String = str(RosterManager.roster[idx].get("character_name", "this character"))
+	_delete_dialog.dialog_text = "Delete '%s' from your local roster?" % char_name
+	_delete_dialog.popup_centered()
+
+func _on_delete_char_confirmed() -> void:
+	if _delete_target_idx < 0:
+		return
+	var err: String = RosterManager.remove_char(_delete_target_idx)
+	if err != "":
+		_play_status.text = "⚠ " + err
+		_delete_target_idx = -1
+		return
+
+	if RosterManager.roster.is_empty():
+		_editor_idx = -1
+		_show_editor_placeholder()
+		_play_status.text = "Character deleted."
+		_delete_target_idx = -1
+		return
+
+	if _editor_idx == _delete_target_idx:
+		_editor_idx = mini(_delete_target_idx, RosterManager.roster.size() - 1)
+		_load_editor(RosterManager.roster[_editor_idx])
+	elif _editor_idx > _delete_target_idx:
+		_editor_idx -= 1
+
+	_play_status.text = "Character deleted."
+	_delete_target_idx = -1
+
+func _save_current_character() -> void:
+	if _editor_idx < 0 or _editor_idx >= RosterManager.roster.size():
+		return
+	var cd: Dictionary = RosterManager.roster[_editor_idx].duplicate(true)
+
+	if _ed_name:
+		cd["character_name"] = _ed_name.text.strip_edges()
+	if str(cd.get("character_name", "")) == "":
+		cd["character_name"] = "Unnamed"
+
+	if _ed_class and _ed_class.selected >= 0:
+		var class_entry: Dictionary = _ed_class.get_item_metadata(_ed_class.selected)
+		cd["character_class"] = int(class_entry["char_class"])
+		cd["class_data_path"] = class_entry["path"]
+
+	var stat_keys: Array[String] = ["strength", "dexterity", "constitution", "wisdom", "intelligence"]
+	for i in min(_ed_stats.size(), stat_keys.size()):
+		cd[stat_keys[i]] = int(_ed_stats[i].value)
+
+	if _ed_main:
+		cd["main_hand_path"] = _get_option_path(_ed_main)
+	if _ed_off:
+		cd["off_hand_path"] = _get_option_path(_ed_off)
+	if _ed_armor:
+		cd["armor_path"] = _get_option_path(_ed_armor)
+
+	var ids: Array[String] = []
+	for i in min(_ed_skills.size(), _abilities.size()):
+		if _ed_skills[i].button_pressed:
+			ids.append((_abilities[i] as AbilityData).entry_id)
+	cd["ability_ids"] = ids
+
+	var equip_err: String = RosterManager.validate_equipment(cd.get("main_hand_path"), cd.get("off_hand_path"))
+	if _ed_equip_err:
+		_ed_equip_err.text = equip_err
+	if equip_err != "":
+		_play_status.text = "⚠ " + equip_err
+		return
+
+	if ids.size() > 4:
+		if _ed_skill_err:
+			_ed_skill_err.text = "⚠ Max 4 active abilities."
+		_play_status.text = "⚠ Max 4 active abilities."
+		return
+	if _ed_skill_err:
+		_ed_skill_err.text = ""
+
+	RosterManager.update_char(_editor_idx, cd)
+	_refresh_derived_stats()
+	_play_status.text = "Character saved locally."
+
+# ---------------------------------------------------------------------------
 # Roster change (external)
 # ---------------------------------------------------------------------------
 
@@ -1017,6 +1145,9 @@ func _on_roster_changed() -> void:
 	# Re-load editor content if the selected char was changed externally.
 	if _editor_idx >= 0 and _editor_idx < RosterManager.roster.size():
 		_refresh_derived_stats()
+	elif RosterManager.roster.is_empty():
+		_editor_idx = -1
+		_show_editor_placeholder()
 
 # ---------------------------------------------------------------------------
 # Public — called by Main.gd when server disconnects mid-lobby

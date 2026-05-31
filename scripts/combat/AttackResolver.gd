@@ -82,6 +82,8 @@ class AttackResult:
 	var roll_d100: int = 0
 	var acc_base: int = 0
 	var acc_stat_bonus: int = 0
+	var acc_skill_bonus: int = 0
+	var acc_context_mod: int = 0
 	var acc_ability_mod: int = 0
 	var acc_cover_mod: int = 0
 	var acc_evasion: int = 0
@@ -94,6 +96,9 @@ class AttackResult:
 	var armor_absorbed: float = 0.0
 	## Effective reliability factor applied to this damage roll (0.0 = none).
 	var reliability: float = 0.0
+	## Detailed per-bundle dice roll entries.
+	## Each item contains: source, count, sides, roll, reliability.
+	var dice_roll_details: Array = []
 
 # ---------------------------------------------------------------------------
 # Main Entry Point
@@ -148,6 +153,7 @@ func _resolve_physical(
 	var effective_range: int = weapon.attack_range
 	if skill_or_ability is AbilityData:
 		effective_range += (skill_or_ability as AbilityData).range_modifier
+	effective_range += _get_passive_range_bonus(attacker, target, weapon)
 	var dist: int = abs(attacker.grid_position.x - target.grid_position.x) + abs(attacker.grid_position.y - target.grid_position.y)
 	if dist > effective_range:
 		result.rejection_reason = "Target out of melee range (%d > %d)." % [dist, effective_range]
@@ -193,6 +199,7 @@ func _resolve_ranged(
 	var effective_range: int = weapon.attack_range
 	if skill_or_ability is AbilityData:
 		effective_range += (skill_or_ability as AbilityData).range_modifier
+	effective_range += _get_passive_range_bonus(attacker, target, weapon)
 	var dist: int = abs(attacker.grid_position.x - target.grid_position.x) + abs(attacker.grid_position.y - target.grid_position.y)
 	if dist > effective_range:
 		result.rejection_reason = "Target out of ranged range (%d > %d)." % [dist, effective_range]
@@ -234,6 +241,7 @@ func _resolve_magical(
 	var effective_range: int = weapon.attack_range
 	if skill_or_ability is AbilityData:
 		effective_range += (skill_or_ability as AbilityData).range_modifier
+	effective_range += _get_passive_range_bonus(attacker, target, weapon)
 	var dist: int = abs(attacker.grid_position.x - target.grid_position.x) + abs(attacker.grid_position.y - target.grid_position.y)
 	if dist > effective_range:
 		result.rejection_reason = "Target out of magical range (%d > %d)." % [dist, effective_range]
@@ -342,7 +350,9 @@ func _roll_accuracy_and_damage(
 	# Populate accuracy debug breakdown.
 	result.acc_base = BASE_ACCURACY
 	result.acc_stat_bonus = accuracy_stat_bonus
-	result.acc_ability_mod = base_accuracy_modifier + ability_acc_modifier
+	result.acc_skill_bonus = skill_acc_bonus
+	result.acc_context_mod = base_accuracy_modifier
+	result.acc_ability_mod = ability_acc_modifier
 	result.acc_cover_mod = base_accuracy_modifier if result.cover_penalty_applied else 0
 	result.acc_evasion = target_evasion
 
@@ -356,7 +366,8 @@ func _roll_accuracy_and_damage(
 	# ── Damage (only on hit) ──────────────────────────────────────────────────
 	if result.hit:
 		# General reliability factor shared by all bundled dice in this attack.
-		var general_reliability: float = weapon.base_reliability + ability_reliability_bonus + _get_reliability_bonus(attacker, weapon)
+		var skill_reliability_bonus: float = _get_passive_reliability_bonus(attacker, target, weapon)
+		var general_reliability: float = weapon.base_reliability + ability_reliability_bonus + _get_reliability_bonus(attacker, weapon) + skill_reliability_bonus
 
 		# Build the dice bundle.
 		# Slot 1: weapon base dice, converted to a temporary DiceValue.
@@ -384,10 +395,19 @@ func _roll_accuracy_and_damage(
 
 		# Roll each bundled DiceValue; they all benefit from general_reliability.
 		var total_roll: float = 0.0
+		result.dice_roll_details.clear()
 
 		var weapon_eff_rel: float = clampf(general_reliability + weapon_dv.reliability, 0.0, 1.0)
-		total_roll += float(_dice_roller.roll_dice(weapon_dv.count, weapon_dv.sides,
+		var weapon_roll: float = float(_dice_roller.roll_dice(weapon_dv.count, weapon_dv.sides,
 				weapon_eff_rel > 0.0, weapon_eff_rel))
+		total_roll += weapon_roll
+		result.dice_roll_details.append({
+			"source": "weapon",
+			"count": weapon_dv.count,
+			"sides": weapon_dv.sides,
+			"roll": weapon_roll,
+			"reliability": weapon_eff_rel,
+		})
 
 		var bonus_dice_roll: float = 0.0
 		for se in skill_dice_effects:
@@ -396,6 +416,13 @@ func _roll_accuracy_and_damage(
 			var r: float = float(_dice_roller.roll_dice(dv.count, dv.sides, eff_rel > 0.0, eff_rel))
 			bonus_dice_roll += r
 			total_roll += r
+			result.dice_roll_details.append({
+				"source": "skill",
+				"count": dv.count,
+				"sides": dv.sides,
+				"roll": r,
+				"reliability": eff_rel,
+			})
 
 		if action_dv != null:
 			var eff_rel: float = clampf(general_reliability + action_dv.reliability, 0.0, 1.0)
@@ -403,6 +430,13 @@ func _roll_accuracy_and_damage(
 					eff_rel > 0.0, eff_rel))
 			bonus_dice_roll += r
 			total_roll += r
+			result.dice_roll_details.append({
+				"source": "ability",
+				"count": action_dv.count,
+				"sides": action_dv.sides,
+				"roll": r,
+				"reliability": eff_rel,
+			})
 
 		# Stat damage bonus applied once (multiplier reserved for future skills).
 		const STAT_BONUS_MULTIPLIER: float = 1.0
@@ -467,6 +501,24 @@ func _get_reliability_bonus(attacker: CharacterData, weapon: WeaponData) -> floa
 		WeaponData.DamageType.MAGICAL:
 			return 0.0
 	return 0.0
+
+func _get_passive_reliability_bonus(attacker: CharacterData, target: CharacterData, weapon: WeaponData) -> float:
+	var ctx: SkillProcessor.SkillContext = SkillProcessor.SkillContext.new(
+		attacker,
+		SkillCondition.MajorCondition.ON_ATTACK,
+		attacker,
+		target,
+		weapon)
+	return SkillProcessor.get_reliability_bonus(ctx) / 100.0
+
+func _get_passive_range_bonus(attacker: CharacterData, target: CharacterData, weapon: WeaponData) -> int:
+	var ctx: SkillProcessor.SkillContext = SkillProcessor.SkillContext.new(
+		attacker,
+		SkillCondition.MajorCondition.ON_ATTACK,
+		attacker,
+		target,
+		weapon)
+	return SkillProcessor.get_range_bonus(ctx)
 
 # ---------------------------------------------------------------------------
 # Ammo Consumption

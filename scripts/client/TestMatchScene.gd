@@ -268,13 +268,28 @@ func apply_state(state: Dictionary) -> void:
 func log_event(message: String) -> void:
 	if not _rtl_log:
 		return
-	_rtl_log.append_text("\n" + message)
+	if _rtl_log.get_parsed_text().is_empty():
+		_rtl_log.append_text(message)
+	else:
+		_rtl_log.append_text("\n" + message)
 	# Defer scroll so the layout has updated.
 	call_deferred("_scroll_to_bottom")
 
 func _scroll_to_bottom() -> void:
-	if _scroll_log:
-		_scroll_log.scroll_vertical = 999999
+	if not _scroll_log:
+		return
+	var sb: VScrollBar = _scroll_log.get_v_scroll_bar()
+	if sb:
+		_scroll_log.scroll_vertical = int(sb.max_value)
+	# A second deferred pass ensures we hit the final bottom after text reflow.
+	call_deferred("_scroll_to_bottom_final")
+
+func _scroll_to_bottom_final() -> void:
+	if not _scroll_log:
+		return
+	var sb: VScrollBar = _scroll_log.get_v_scroll_bar()
+	if sb:
+		_scroll_log.scroll_vertical = int(sb.max_value)
 
 # ---------------------------------------------------------------------------
 # UI update helpers

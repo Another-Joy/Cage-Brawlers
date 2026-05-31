@@ -74,6 +74,15 @@ static func get_damage_reduction(ctx: SkillContext, dice_roller: DiceRoller = nu
 static func get_movement_modifier(ctx: SkillContext, dice_roller: DiceRoller = null) -> int:
 	return _sum_effects(ctx, SkillEffect.EffectType.MODIFY_MOVEMENT, dice_roller)
 
+## Returns the total reliability bonus from passive skills (percentage points).
+## Example: +30 means +30% reliability.
+static func get_reliability_bonus(ctx: SkillContext, dice_roller: DiceRoller = null) -> int:
+	return _sum_effects(ctx, SkillEffect.EffectType.ADD_RELIABILITY, dice_roller)
+
+## Returns the total range bonus from passive skills (tiles).
+static func get_range_bonus(ctx: SkillContext, dice_roller: DiceRoller = null) -> int:
+	return _sum_effects(ctx, SkillEffect.EffectType.ADD_RANGE, dice_roller)
+
 ## Collects all DICE-type ADD_DAMAGE SkillEffects from triggered passive skills.
 ## These are returned as an Array[SkillEffect] so the caller can roll each one
 ## as a separate DiceValue in the attack bundle (rather than pre-summing them).

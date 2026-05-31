@@ -1,16 +1,13 @@
-[gd_resource type="Resource" script_class="ArmorData" format=3]
+[gd_resource type="Resource" script_class="ArmorData" load_steps=3 format=3 uid="uid://dc1xspwxsqi7o"]
 
-[ext_resource type="Script" path="res://scripts/data/ArmorData.gd" id="1"]
+[ext_resource type="Script" uid="uid://deqg5ptr388ad" path="res://scripts/data/ArmorData.gd" id="1"]
+[ext_resource type="Script" uid="uid://c34bt228rslqw" path="res://scripts/data/SkillTreeEntry.gd" id="1_hxq7h"]
 
 [resource]
 script = ExtResource("1")
-armor_type = 0
 armor_value = 4
 evasion_modifier = -10
-movement_modifier = 0
-ammo_slots_capacity = 20
-allows_arrows = true
-potion_slots = 2
+ammo_slots_capacity = 30
 item_id = "leather_hide"
 item_name = "Hide Armor"
 description = "Thick animal hide offering light protection and minimal encumbrance."

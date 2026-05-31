@@ -546,31 +546,36 @@ func _serialize_char(char_data: CharacterData, player_id: String, full_info: boo
 ##   Bruised          – first segment has taken damage but is not depleted
 ##   Bloodied         – first segment fully depleted (second still has HP)
 ##   Heavily Bloodied – second segment fully depleted (last segment remains)
-##   Downed           – no HP / knocked_down
+##   Downed           – no health
 func _get_hp_state_label(cd: CharacterData) -> String:
-	if cd.state_flag == CharacterData.StateFlag.DEAD:
-		return "Dead"
-	if cd.state_flag == CharacterData.StateFlag.KNOCKED_DOWN:
+	if cd.get_current_hp() <= 0.0:
 		return "Downed"
 	if cd.segment_hp.is_empty():
 		return "Unknown"
-	# Count how many segments are fully disabled (depleted and locked out).
-	var disabled_count: int = 0
-	for i in cd.segment_disabled.size():
-		if cd.segment_disabled[i]:
-			disabled_count += 1
-	if disabled_count >= 2:
-		return "Heavily Bloodied"
-	if disabled_count >= 1:
-		return "Bloodied"
-	# No segment is fully disabled — check whether the first segment has taken any damage.
-	var pct_0: float = 0.34
+
+	var pcts: Array[float] = []
 	if cd.class_data != null and not cd.class_data.health_segment_percentages.is_empty():
-		pct_0 = cd.class_data.health_segment_percentages[0]
-	var first_seg_full: float = ceil(cd.get_max_hp() * pct_0)
+		pcts = cd.class_data.health_segment_percentages
+	else:
+		pcts = ClassDefinitions.get_segment_percentages(cd.character_class)
+
+	var max_hp: float = cd.get_max_hp()
+	var first_seg_full: float = ceil(max_hp * pcts[0])
+	var second_seg_full: float = ceil(max_hp * pcts[1])
+	var third_seg_full: float = max_hp - first_seg_full - second_seg_full
+
 	var first_seg_current: float = cd.segment_hp[0] if cd.segment_hp.size() > 0 else 0.0
+	var second_seg_current: float = cd.segment_hp[1] if cd.segment_hp.size() > 1 else 0.0
+	var third_seg_current: float = cd.segment_hp[2] if cd.segment_hp.size() > 2 else 0.0
+
+	if second_seg_current <= 0.0 and third_seg_current > 0.0:
+		return "Heavily Bloodied"
+	if first_seg_current <= 0.0 and second_seg_current > 0.0:
+		return "Bloodied"
 	if first_seg_current < first_seg_full:
 		return "Bruised"
+	if first_seg_current >= first_seg_full and second_seg_current >= second_seg_full and third_seg_current >= third_seg_full:
+		return "Unscathed"
 	return "Unscathed"
 
 func _serialize_map() -> Dictionary:

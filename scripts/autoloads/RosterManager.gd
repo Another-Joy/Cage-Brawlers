@@ -9,6 +9,8 @@ extends Node
 # ---------------------------------------------------------------------------
 
 const SAVE_PATH: String = "user://roster.json"
+const DEFAULT_NEW_CLASS: int = 5  # Fighter
+const DEFAULT_NEW_CLASS_PATH: String = "res://resources/classes/fighter.tres"
 
 ## Hardcoded manifest of default character .tres files used when no save
 ## exists (team_a + team_b characters from the repository resources).
@@ -56,10 +58,15 @@ func load_roster() -> void:
 			f.close()
 			var parsed: Variant = JSON.parse_string(text)
 			if parsed is Dictionary and parsed.has("roster"):
-				roster = Array(parsed["roster"])
+				roster = []
+				for raw_char in parsed["roster"]:
+					if raw_char is Dictionary:
+						roster.append(_normalise_char_dict(raw_char as Dictionary))
 				party_indices = []
 				for idx in parsed.get("party_indices", []):
-					party_indices.append(int(idx))
+					var clean_idx: int = int(idx)
+					if clean_idx >= 0 and clean_idx < roster.size() and not party_indices.has(clean_idx):
+						party_indices.append(clean_idx)
 				roster_changed.emit()
 				return
 	_create_defaults()
@@ -133,14 +140,64 @@ func party_is_valid() -> bool:
 func update_char(roster_idx: int, char_dict: Dictionary) -> void:
 	if roster_idx < 0 or roster_idx >= roster.size():
 		return
-	roster[roster_idx] = char_dict.duplicate()
+	roster[roster_idx] = _normalise_char_dict(char_dict)
 	save_roster()
 	roster_changed.emit()
 
 func add_char(char_dict: Dictionary) -> void:
-	roster.append(char_dict.duplicate())
+	roster.append(_normalise_char_dict(char_dict))
 	save_roster()
 	roster_changed.emit()
+
+func create_new_char(character_name: String = "") -> int:
+	var next_index: int = roster.size() + 1
+	var id_suffix: String = str(Time.get_unix_time_from_system())
+	var new_dict: Dictionary = {
+		"character_id": "custom_%s_%d" % [id_suffix, next_index],
+		"character_name": character_name if character_name != "" else "New Brawler %d" % next_index,
+		"character_class": DEFAULT_NEW_CLASS,
+		"class_data_path": DEFAULT_NEW_CLASS_PATH,
+		"level": 1,
+		"experience": 0,
+		"strength": 10,
+		"dexterity": 10,
+		"constitution": 10,
+		"wisdom": 10,
+		"intelligence": 10,
+		"main_hand_path": null,
+		"off_hand_path": null,
+		"armor_path": null,
+		"bullets_count": 0,
+		"bolts_count": 0,
+		"arrows_count": 0,
+		"potions_count": 0,
+		"ability_ids": [],
+	}
+	roster.append(new_dict)
+	save_roster()
+	roster_changed.emit()
+	return roster.size() - 1
+
+func remove_char(roster_idx: int) -> String:
+	if roster_idx < 0 or roster_idx >= roster.size():
+		return "Invalid roster index."
+	roster.remove_at(roster_idx)
+
+	# Rebuild party indices after removal.
+	var updated_party: Array = []
+	for idx in party_indices:
+		var p: int = int(idx)
+		if p == roster_idx:
+			continue
+		if p > roster_idx:
+			p -= 1
+		if p >= 0 and p < roster.size() and not updated_party.has(p):
+			updated_party.append(p)
+	party_indices = updated_party
+
+	save_roster()
+	roster_changed.emit()
+	return ""
 
 # ---------------------------------------------------------------------------
 # Serialisation helpers (CharacterData ↔ Dictionary)
@@ -259,3 +316,30 @@ static func _res_path(res: Resource) -> Variant:
 	if res == null:
 		return null
 	return res.resource_path
+
+func _normalise_char_dict(raw: Dictionary) -> Dictionary:
+	var clean: Dictionary = raw.duplicate(true)
+	if clean.get("character_id", "") == "":
+		clean["character_id"] = "char_%s" % str(Time.get_unix_time_from_system())
+	clean["character_name"] = str(clean.get("character_name", "Unknown"))
+	clean["character_class"] = int(clean.get("character_class", DEFAULT_NEW_CLASS))
+	clean["class_data_path"] = clean.get("class_data_path", DEFAULT_NEW_CLASS_PATH)
+	clean["level"] = int(clean.get("level", 1))
+	clean["experience"] = int(clean.get("experience", 0))
+	clean["strength"] = int(clean.get("strength", 10))
+	clean["dexterity"] = int(clean.get("dexterity", 10))
+	clean["constitution"] = int(clean.get("constitution", 10))
+	clean["wisdom"] = int(clean.get("wisdom", 10))
+	clean["intelligence"] = int(clean.get("intelligence", 10))
+	clean["bullets_count"] = int(clean.get("bullets_count", 0))
+	clean["bolts_count"] = int(clean.get("bolts_count", 0))
+	clean["arrows_count"] = int(clean.get("arrows_count", 0))
+	clean["potions_count"] = int(clean.get("potions_count", 0))
+	var raw_ids: Array = Array(clean.get("ability_ids", []))
+	var ids: Array[String] = []
+	for v in raw_ids:
+		var id: String = str(v)
+		if id != "" and not ids.has(id):
+			ids.append(id)
+	clean["ability_ids"] = ids
+	return clean
