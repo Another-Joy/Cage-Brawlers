@@ -125,8 +125,8 @@ var active_buffs: Dictionary = {}
 
 ## Max HP scaling: constitution * HP_PER_CON
 const HP_PER_CON: float = 10.0
-const CARRY_WEIGHT_BASE: float = 5.0
-const CARRY_WEIGHT_PER_STR: float = 2.0
+const CARRY_WEIGHT_BASE: float = 0.0
+const CARRY_WEIGHT_PER_STR: float = 1.0
 
 # ---------------------------------------------------------------------------
 # Derived Stat Calculations

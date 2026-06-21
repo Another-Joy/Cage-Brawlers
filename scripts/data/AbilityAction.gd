@@ -89,3 +89,9 @@ enum TargetType {
 ## E.g. 0.5 = heal for 50% of the last attack's damage. Stacks additively
 ## with bonus_dice and flat_bonus.
 @export var heal_from_attack_fraction: float = 0.0
+
+## Index into the ability's target list for multi-target abilities.
+## 0 = primary target (always the first selected / declared target).
+## 1 = secondary target (second selected, e.g. ally for Drain Life heal).
+## This is only meaningful when AbilityData.target_count > 1.
+@export var target_index: int = 0

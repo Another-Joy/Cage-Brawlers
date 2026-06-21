@@ -5,6 +5,29 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
+function Get-RelativePathSafe {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$BasePath,
+        [Parameter(Mandatory = $true)]
+        [string]$TargetPath
+    )
+
+    $baseFull = [System.IO.Path]::GetFullPath($BasePath)
+    $targetFull = [System.IO.Path]::GetFullPath($TargetPath)
+
+    if (-not $baseFull.EndsWith([System.IO.Path]::DirectorySeparatorChar)) {
+        $baseFull += [System.IO.Path]::DirectorySeparatorChar
+    }
+
+    $baseUri = New-Object System.Uri($baseFull)
+    $targetUri = New-Object System.Uri($targetFull)
+    $relativeUri = $baseUri.MakeRelativeUri($targetUri)
+    $relativePath = [System.Uri]::UnescapeDataString($relativeUri.ToString())
+
+    return $relativePath -replace '/', [System.IO.Path]::DirectorySeparatorChar
+}
+
 $patterns = @(
     'DirAccess\.open',
     'list_dir_begin',
@@ -30,7 +53,7 @@ foreach ($file in $scriptFiles) {
             continue
         }
 
-        $relativePath = [System.IO.Path]::GetRelativePath($ProjectRoot, $file.FullName)
+        $relativePath = Get-RelativePathSafe -BasePath $ProjectRoot -TargetPath $file.FullName
         $hits += [PSCustomObject]@{
             Path = $relativePath
             Line = $row.LineNumber

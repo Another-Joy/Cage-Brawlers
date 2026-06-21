@@ -1,7 +1,8 @@
-[gd_resource type="Resource" script_class="ArmorData" load_steps=3 format=3 uid="uid://dv61h1lipheul"]
+[gd_resource type="Resource" script_class="ArmorData" load_steps=4 format=3 uid="uid://dv61h1lipheul"]
 
 [ext_resource type="Script" uid="uid://deqg5ptr388ad" path="res://scripts/data/ArmorData.gd" id="1_ckfnp"]
-[ext_resource type="Resource" path="res://resources/skills/bandits_outfit_skill.tres" id="2"]
+[ext_resource type="Script" uid="uid://c34bt228rslqw" path="res://scripts/data/SkillTreeEntry.gd" id="1_u083s"]
+[ext_resource type="Resource" uid="uid://ch3p3wujll3cd" path="res://resources/skills/bandits_outfit_skill.tres" id="2"]
 
 [resource]
 script = ExtResource("1_ckfnp")
@@ -16,5 +17,5 @@ item_name = "Bandit's Outfit"
 description = "Concealing attire worn by thieves. All Surprise attacks gain +40% Reliability and +40% Accuracy."
 equipment_type = 3
 weight = 4.0
-granted_skills = [ExtResource("2")]
+granted_skills = Array[ExtResource("1_u083s")]([ExtResource("2")])
 metadata/_custom_type_script = "uid://deqg5ptr388ad"

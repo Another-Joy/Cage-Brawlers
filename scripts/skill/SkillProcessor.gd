@@ -49,8 +49,10 @@ class SkillContext:
 # ---------------------------------------------------------------------------
 
 ## Returns the total extra damage bonus from passive skills for the given context.
+## Only counts FLAT and STAT_MODIFIER effects; DICE effects are handled separately
+## via collect_bonus_damage_dice so they can be rolled as part of the attack bundle.
 static func get_damage_bonus(ctx: SkillContext, dice_roller: DiceRoller = null) -> int:
-	return _sum_effects(ctx, SkillEffect.EffectType.ADD_DAMAGE, dice_roller)
+	return _sum_non_dice_effects(ctx, SkillEffect.EffectType.ADD_DAMAGE, dice_roller)
 
 ## Returns the total extra accuracy bonus from passive skills.
 static func get_accuracy_bonus(ctx: SkillContext, dice_roller: DiceRoller = null) -> int:
@@ -71,6 +73,35 @@ static func get_damage_reduction(ctx: SkillContext, dice_roller: DiceRoller = nu
 ## Returns the total movement modifier from passive skills.
 static func get_movement_modifier(ctx: SkillContext, dice_roller: DiceRoller = null) -> int:
 	return _sum_effects(ctx, SkillEffect.EffectType.MODIFY_MOVEMENT, dice_roller)
+
+## Returns the total reliability bonus from passive skills (percentage points).
+## Example: +30 means +30% reliability.
+static func get_reliability_bonus(ctx: SkillContext, dice_roller: DiceRoller = null) -> int:
+	return _sum_effects(ctx, SkillEffect.EffectType.ADD_RELIABILITY, dice_roller)
+
+## Returns the total range bonus from passive skills (tiles).
+static func get_range_bonus(ctx: SkillContext, dice_roller: DiceRoller = null) -> int:
+	return _sum_effects(ctx, SkillEffect.EffectType.ADD_RANGE, dice_roller)
+
+## Collects all DICE-type ADD_DAMAGE SkillEffects from triggered passive skills.
+## These are returned as an Array[SkillEffect] so the caller can roll each one
+## as a separate DiceValue in the attack bundle (rather than pre-summing them).
+static func collect_bonus_damage_dice(ctx: SkillContext) -> Array:
+	var effects: Array = []
+	if ctx.owner == null:
+		return effects
+	for tree in ctx.owner.skill_trees:
+		for entry in tree:
+			if not entry is SkillData:
+				continue
+			var skill: SkillData = entry as SkillData
+			if _skill_triggers(skill, ctx):
+				for effect in skill.effects:
+					if effect.effect_type == SkillEffect.EffectType.ADD_DAMAGE \
+							and effect.value_type == SkillEffect.ValueType.DICE \
+							and effect.dice != null:
+						effects.append(effect)
+	return effects
 
 # ---------------------------------------------------------------------------
 # Internal: trigger evaluation
@@ -95,6 +126,30 @@ static func _sum_effects(
 			if _skill_triggers(skill, ctx):
 				total += _sum_skill_effects(skill, effect_type, ctx, dice_roller)
 
+	return total
+
+## Iterates all SkillData entries in owner's trees, checks triggers, and sums
+## effects of the requested type, excluding DICE-type effects.
+## Used for ADD_DAMAGE so that DICE bonuses are collected separately for bundling.
+static func _sum_non_dice_effects(
+		ctx: SkillContext,
+		effect_type: SkillEffect.EffectType,
+		dice_roller: DiceRoller) -> int:
+
+	if ctx.owner == null:
+		return 0
+
+	var total: int = 0
+	for tree in ctx.owner.skill_trees:
+		for entry in tree:
+			if not entry is SkillData:
+				continue
+			var skill: SkillData = entry as SkillData
+			if _skill_triggers(skill, ctx):
+				for effect in skill.effects:
+					if effect.effect_type == effect_type \
+							and effect.value_type != SkillEffect.ValueType.DICE:
+						total += _resolve_effect_value(effect, ctx, dice_roller)
 	return total
 
 ## Returns true if any of the skill's SkillCondition triggers matches ctx.
