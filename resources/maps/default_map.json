@@ -1,0 +1,24 @@
+{
+	"width": 12,
+	"height": 8,
+	"boundaries": [
+		{"a": {"x": 2, "y": 1, "z": 0}, "b": {"x": 3, "y": 1, "z": 0}, "wall": true, "barricade": false, "ladder": false},
+		{"a": {"x": 2, "y": 2, "z": 0}, "b": {"x": 3, "y": 2, "z": 0}, "wall": true, "barricade": false, "ladder": false},
+		{"a": {"x": 2, "y": 3, "z": 0}, "b": {"x": 3, "y": 3, "z": 0}, "wall": true, "barricade": false, "ladder": false},
+		{"a": {"x": 2, "y": 4, "z": 0}, "b": {"x": 3, "y": 4, "z": 0}, "wall": true, "barricade": false, "ladder": false},
+		{"a": {"x": 2, "y": 5, "z": 0}, "b": {"x": 3, "y": 5, "z": 0}, "wall": true, "barricade": false, "ladder": false},
+
+		{"a": {"x": 8, "y": 1, "z": 0}, "b": {"x": 9, "y": 1, "z": 0}, "wall": true, "barricade": false, "ladder": false},
+		{"a": {"x": 8, "y": 2, "z": 0}, "b": {"x": 9, "y": 2, "z": 0}, "wall": true, "barricade": false, "ladder": false},
+		{"a": {"x": 8, "y": 3, "z": 0}, "b": {"x": 9, "y": 3, "z": 0}, "wall": true, "barricade": false, "ladder": false},
+		{"a": {"x": 8, "y": 4, "z": 0}, "b": {"x": 9, "y": 4, "z": 0}, "wall": true, "barricade": false, "ladder": false},
+		{"a": {"x": 8, "y": 5, "z": 0}, "b": {"x": 9, "y": 5, "z": 0}, "wall": true, "barricade": false, "ladder": false},
+
+		{"a": {"x": 3, "y": 3, "z": 0}, "b": {"x": 3, "y": 4, "z": 0}, "wall": false, "barricade": true, "ladder": false},
+		{"a": {"x": 4, "y": 3, "z": 0}, "b": {"x": 4, "y": 4, "z": 0}, "wall": false, "barricade": true, "ladder": false},
+		{"a": {"x": 5, "y": 3, "z": 0}, "b": {"x": 5, "y": 4, "z": 0}, "wall": false, "barricade": true, "ladder": false},
+		{"a": {"x": 6, "y": 3, "z": 0}, "b": {"x": 6, "y": 4, "z": 0}, "wall": false, "barricade": true, "ladder": false},
+		{"a": {"x": 7, "y": 3, "z": 0}, "b": {"x": 7, "y": 4, "z": 0}, "wall": false, "barricade": true, "ladder": false},
+		{"a": {"x": 8, "y": 3, "z": 0}, "b": {"x": 8, "y": 4, "z": 0}, "wall": false, "barricade": true, "ladder": false}
+	]
+}

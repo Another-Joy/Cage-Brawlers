@@ -74,6 +74,70 @@ The `--` separator tells Godot to stop processing its own flags; everything afte
 
 ---
 
+## Server map selection (compiled map files)
+
+The server now loads map files from `res://resources/maps/*.json`.
+
+- While the server is waiting for clients, it prints a numbered map list in the terminal.
+- Type the number and press **Enter** to change the selected map before both rosters are received.
+- The currently selected map is the one loaded for the next battle.
+- If interactive stdin is not available, the server keeps the default/CLI selection.
+
+Example terminal output:
+
+```text
+[SERVER] Available maps:
+   * 1) default_map.json
+      2) custom_map.json
+[SERVER] Type a map number and press Enter to select it before both rosters are received.
+```
+
+- Default map path is `res://resources/maps/default_map.json`.
+- You can override from CLI at startup:
+
+```bash
+# Linux / macOS
+./godot --headless --path /path/to/Cage-Brawlers -- --map=default_map.json
+
+# Windows (PowerShell)
+.\godot.exe --headless --path C:\path\to\Cage-Brawlers -- --map=default_map.json
+```
+
+You can also pass a full resource path:
+
+```bash
+--map=res://resources/maps/default_map.json
+```
+
+If a selected map fails to load, the server falls back to the built-in test map.
+
+---
+
+## Standalone map editor app
+
+Map authoring is no longer part of the gameplay client lobby.
+Use the dedicated map editor scene:
+
+```bash
+# Linux / macOS
+./godot --path /path/to/Cage-Brawlers --scene res://scenes/MapEditor.tscn
+
+# Windows (PowerShell)
+.\godot.exe --path C:\Users\tiago\Documents\GitHub\Cage-Brawlers --scene res://scenes/MapEditor.tscn
+```
+
+By default, it saves to:
+
+- `res://resources/maps/custom_map.json`
+
+You can then run the server with:
+
+- `--map=custom_map.json`
+
+For exported workflows, create a separate export preset using `scenes/MapEditor.tscn` as the main scene.
+
+---
+
 ## Exported binaries
 
 After exporting the project (**Project → Export…** in the editor):

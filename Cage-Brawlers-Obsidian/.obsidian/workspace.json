@@ -41,12 +41,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "Armor/Light Armors/Mage's Kefta.md",
+                "file": "Skills & Abilities/Skills/Armor Masteries.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "Mage's Kefta"
+              "title": "Armor Masteries"
             }
           }
         ],
@@ -214,17 +214,21 @@
   },
   "active": "158cc3f8b44fa511",
   "lastOpenFiles": [
-    "test.md",
-    "Armor/Medium Armors/Studded leather.md",
     "Armor/Light Armors/Simple Gabardine.md",
-    "Armor/Heavy Armors/Ring Mail.md",
     "Armor/Light Armors/Ranger's Robes.md",
     "Armor/Light Armors/Mage's Kefta.md",
-    "Armor/Medium Armors/Hide.md",
-    "Armor/Heavy Armors/Full Plate.md",
-    "Armor/Heavy Armors/Chain Mail.md",
-    "Armor/Medium Armors/Breastplate.md",
     "Armor/Light Armors/Bandit's Outfit.md",
+    "Armor/Ideas/Heavy Armor.md",
+    "Armor/Medium Armors/Studded leather.md",
+    "Armor/Medium Armors/Breastplate.md",
+    "Armor/Medium Armors/Hide.md",
+    "Armor/Ideas/Light Armor.md",
+    "Skills & Abilities/Skills/Armor Proficiencies.md",
+    "Skills & Abilities/Skills/Armor Masteries.md",
+    "Armor/Heavy Armors/Chain Mail.md",
+    "Armor/Heavy Armors/Full Plate.md",
+    "Armor/Heavy Armors/Ring Mail.md",
+    "test.md",
     "Skills & Abilities/Abilities/Lightning's Call.md",
     "Skills & Abilities/Abilities/Hip Shot.md",
     "Skills & Abilities/Abilities/Fire Artillery.md",
@@ -236,19 +240,15 @@
     "Keywords/Direct.md",
     "Templates/Abilities.md",
     "Skills & Abilities/Abilities/Riposte.md",
-    "Skills & Abilities/Abilities/Reckless Assault.md",
     "Keywords/Untitled",
     "Keywords",
     "Templates",
-    "Weapons/Ranged/Weapons/Hand Crossbow.md",
     "Skills & Abilities/Abilities",
     "Skills & Abilities/Skills",
     "Skills & Abilities/Heal",
     "Skills & Abilities/Damage/Abilities",
     "Skills & Abilities/Damage/Skills",
     "Skills & Abilities/Damage",
-    "Skills & Abilities",
-    "Weapons/Off-Hand/Buffs/Crypt Candle.md",
-    "Weapons/Off-Hand/Buffs/Chained Censer.md"
+    "Skills & Abilities"
   ]
 }

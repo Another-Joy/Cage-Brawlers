@@ -113,6 +113,7 @@ var _ed_skills:        Array = []   # Array[CheckBox]
 var _ed_skill_err:     Label
 var _delete_dialog:    ConfirmationDialog
 var _delete_target_idx: int = -1
+var _result_dialog:    AcceptDialog
 
 # ---------------------------------------------------------------------------
 # Editor state
@@ -179,6 +180,10 @@ func _build_ui() -> void:
 	_delete_dialog.dialog_text = "Delete this character from your local roster?"
 	_delete_dialog.confirmed.connect(_on_delete_char_confirmed)
 	layer.add_child(_delete_dialog)
+
+	_result_dialog = AcceptDialog.new()
+	_result_dialog.title = "Match Result"
+	layer.add_child(_result_dialog)
 
 	var root_panel := PanelContainer.new()
 	root_panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -1156,3 +1161,12 @@ func _on_roster_changed() -> void:
 func on_disconnected() -> void:
 	_play_status.text = "Disconnected from server."
 	_play_connect_btn.disabled = false
+
+func on_match_result(won: bool, winner_player_id: String, summary: Dictionary = {}) -> void:
+	_play_connect_btn.disabled = false
+	var outcome: String = "Victory" if won else "Defeat"
+	var gold_line: String = ""
+	if summary.has("gold_earned"):
+		gold_line = "\nGold earned: %d" % int(summary.get("gold_earned", 0))
+	_result_dialog.dialog_text = "%s\nWinner: %s%s" % [outcome, winner_player_id, gold_line]
+	_result_dialog.popup_centered()

@@ -23,6 +23,10 @@ signal broadcast_event(message: String)
 ## Emitted once both rosters are received and the match is ready to start.
 ## Main.gd uses this to send rpc_start_battle to each peer.
 signal battle_ready(peer_a_id: int, peer_b_id: int)
+## Per-peer final match result routed through Main.gd.
+signal match_result_for_peer(peer_id: int, won: bool, winner_player_id: String, summary: Dictionary)
+## Emitted when selected map changes while waiting for players.
+signal selected_map_changed(path: String)
 
 # ---------------------------------------------------------------------------
 # Internal state
@@ -49,6 +53,53 @@ var _match_running: bool = false
 ## Rosters waiting: peer_id → Array of char dicts (received but not yet started)
 var _pending_rosters: Dictionary = {}
 
+const DEFAULT_MAP_PATH: String = "res://resources/maps/default_map.json"
+const _MAP_MANIFEST: Array[String] = [
+	"res://resources/maps/default_map.json",
+	"res://resources/maps/attempt1.json",
+]
+
+var _available_map_paths: Array[String] = []
+var _selected_map_path: String = DEFAULT_MAP_PATH
+
+func _ready() -> void:
+	_refresh_available_maps()
+	var cli_map_path: String = _resolve_selected_map_path_from_cli()
+	if cli_map_path != "":
+		_selected_map_path = cli_map_path
+	elif not _available_map_paths.is_empty() and not _available_map_paths.has(_selected_map_path):
+		_selected_map_path = _available_map_paths[0]
+
+func get_available_map_paths() -> Array[String]:
+	return _available_map_paths.duplicate()
+
+func get_selected_map_path() -> String:
+	return _selected_map_path
+
+func select_map_path(path: String) -> bool:
+	if _match_running:
+		return false
+	if path == "":
+		return false
+	if not _available_map_paths.has(path):
+		if not FileAccess.file_exists(path):
+			return false
+	if _selected_map_path == path:
+		return true
+	_selected_map_path = path
+	emit_signal("selected_map_changed", _selected_map_path)
+	print("[ServerGame] Selected map set to %s" % _selected_map_path)
+	return true
+
+func _refresh_available_maps() -> void:
+	_available_map_paths.clear()
+	for path in _MAP_MANIFEST:
+		if FileAccess.file_exists(path):
+			_available_map_paths.append(path)
+	if _available_map_paths.is_empty() and FileAccess.file_exists(DEFAULT_MAP_PATH):
+		_available_map_paths.append(DEFAULT_MAP_PATH)
+	_available_map_paths.sort()
+
 # ---------------------------------------------------------------------------
 # Roster reception & match start
 # ---------------------------------------------------------------------------
@@ -71,7 +122,7 @@ func _start_match_from_rosters() -> void:
 	print("[ServerGame] Both rosters received — building match…")
 
 	_load_ability_registry()
-	_build_test_map()
+	_load_selected_map_or_fallback()
 
 	var peer_ids: Array = _pending_rosters.keys()
 	var peer_a: int = peer_ids[0]
@@ -94,12 +145,8 @@ func _start_match_from_rosters() -> void:
 			_char_lookup[char_data.character_id] = char_data
 
 	# Place characters on spawn tiles.
-	var spawns_a: Array[Vector3i] = [
-		Vector3i(0, 1, 0), Vector3i(0, 4, 0), Vector3i(0, 6, 0),
-	]
-	var spawns_b: Array[Vector3i] = [
-		Vector3i(11, 1, 0), Vector3i(11, 4, 0), Vector3i(11, 6, 0),
-	]
+	var spawns_a: Array[Vector3i] = _build_spawns_for_side(true)
+	var spawns_b: Array[Vector3i] = _build_spawns_for_side(false)
 	for i in mini(team_a.size(), spawns_a.size()):
 		team_a[i].grid_position = spawns_a[i]
 	for i in mini(team_b.size(), spawns_b.size()):
@@ -503,14 +550,28 @@ func _serialize_char(char_data: CharacterData, player_id: String, full_info: boo
 		for entry in tree:
 			if entry is AbilityData:
 				var ab: AbilityData = entry as AbilityData
+				# Compute effective range for the ability (for HUD range-preview).
+				var ab_range: int = 0
+				for act in ab.actions:
+					var act_a: AbilityAction = act as AbilityAction
+					if act_a.action_type == AbilityAction.ActionType.ATTACK:
+						var base_r: int = char_data.main_hand_slot.attack_range if char_data.main_hand_slot else 1
+						ab_range = maxi(ab_range, base_r + ab.range_modifier + act_a.range_override)
+					elif act_a.action_type == AbilityAction.ActionType.MOVE:
+						var spd: int = char_data.get_base_movement_speed() if act_a.range_override == 0 else act_a.range_override
+						ab_range = maxi(ab_range, spd)
+					elif act_a.range_override > 0:
+						ab_range = maxi(ab_range, act_a.range_override)
 				abilities_out.append({
 					"id":       ab.entry_id,
 					"name":     ab.entry_name,
+					"description": ab.description,
 					"phases":   ab.phases,
 					"cooldown_turns": ab.cooldown_turns,
 					"cooldown_remaining": char_data.ability_cooldowns.get(ab.entry_id, 0),
 					"needs_target": _ability_needs_target(ab),
 					"target_count": ab.target_count,
+					"range":    ab_range,
 				})
 
 	var base: Dictionary = {
@@ -654,9 +715,22 @@ func _format_attack_log(attacker: CharacterData, target: CharacterData, r: Attac
 # ---------------------------------------------------------------------------
 
 func _on_match_ended(winner_player_id: String, _results: Dictionary) -> void:
-	_match_running = false
 	emit_signal("broadcast_event", "=== MATCH OVER — Winner: %s ===" % winner_player_id)
 	_broadcast_state_all()
+
+	for player_id in _results:
+		var peer_id: int = _player_to_peer.get(player_id, -1)
+		if peer_id < 0:
+			continue
+		var summary: Dictionary = _results[player_id]
+		emit_signal(
+			"match_result_for_peer",
+			peer_id,
+			bool(summary.get("won", false)),
+			winner_player_id,
+			summary)
+
+	_reset_match_state()
 
 # ---------------------------------------------------------------------------
 # Test map
@@ -687,6 +761,104 @@ func _build_test_map() -> void:
 		var bd: BoundaryData = BoundaryData.new()
 		bd.has_barricade = true
 		_map_data.set_boundary(Vector3i(x, 3, 0), Vector3i(x, 4, 0), bd)
+
+func _load_selected_map_or_fallback() -> void:
+	var selected_map_path: String = _selected_map_path
+	if _try_load_map_json(selected_map_path):
+		print("[ServerGame] Loaded map: %s" % selected_map_path)
+		return
+	_build_test_map()
+	push_warning("[ServerGame] Failed to load '%s'; using built-in test map." % selected_map_path)
+
+func _resolve_selected_map_path_from_cli() -> String:
+	for arg in OS.get_cmdline_args():
+		if arg.begins_with("--map="):
+			var value: String = arg.trim_prefix("--map=")
+			if value.begins_with("res://"):
+				return value
+			return "res://resources/maps/%s" % value
+	return ""
+
+func _try_load_map_json(path: String) -> bool:
+	if not FileAccess.file_exists(path):
+		return false
+	var f: FileAccess = FileAccess.open(path, FileAccess.READ)
+	if f == null:
+		return false
+	var parsed: Variant = JSON.parse_string(f.get_as_text())
+	f.close()
+	if not (parsed is Dictionary):
+		return false
+
+	var w: int = int(parsed.get("width", 0))
+	var h: int = int(parsed.get("height", 0))
+	if w <= 0 or h <= 0:
+		return false
+
+	var map_data: MapData = MapData.new()
+	for x in range(w):
+		for y in range(h):
+			map_data.tiles.append(Vector3i(x, y, 0))
+
+	for b in parsed.get("boundaries", []):
+		if not (b is Dictionary):
+			continue
+		var bd_dict: Dictionary = b as Dictionary
+		var a_dict: Dictionary = bd_dict.get("a", {})
+		var c_dict: Dictionary = bd_dict.get("b", {})
+		var a: Vector3i = Vector3i(int(a_dict.get("x", 0)), int(a_dict.get("y", 0)), int(a_dict.get("z", 0)))
+		var c: Vector3i = Vector3i(int(c_dict.get("x", 0)), int(c_dict.get("y", 0)), int(c_dict.get("z", 0)))
+		if not map_data.is_valid_tile(a) or not map_data.is_valid_tile(c):
+			continue
+		var bd: BoundaryData = BoundaryData.new()
+		bd.has_wall = bool(bd_dict.get("wall", false))
+		bd.has_barricade = bool(bd_dict.get("barricade", false))
+		bd.has_ladder = bool(bd_dict.get("ladder", false))
+		if bd.has_wall or bd.has_barricade or bd.has_ladder:
+			map_data.set_boundary(a, c, bd)
+
+	_map_data = map_data
+	return true
+
+func _build_spawns_for_side(left_side: bool) -> Array[Vector3i]:
+	if _map_data == null or _map_data.tiles.is_empty():
+		return []
+	var min_x: int = _map_data.tiles[0].x
+	var max_x: int = _map_data.tiles[0].x
+	var min_y: int = _map_data.tiles[0].y
+	var max_y: int = _map_data.tiles[0].y
+	for t in _map_data.tiles:
+		min_x = mini(min_x, t.x)
+		max_x = maxi(max_x, t.x)
+		min_y = mini(min_y, t.y)
+		max_y = maxi(max_y, t.y)
+	var spawn_x: int = min_x if left_side else max_x
+	var y_mid: int = int(roundf((min_y + max_y) / 2.0))
+	var y_top: int = min_y + 1 if (min_y + 1) <= max_y else min_y
+	var y_bottom: int = max_y - 1 if (max_y - 1) >= min_y else max_y
+	var candidates: Array[Vector3i] = [
+		Vector3i(spawn_x, y_top, 0),
+		Vector3i(spawn_x, y_mid, 0),
+		Vector3i(spawn_x, y_bottom, 0),
+	]
+	var out: Array[Vector3i] = []
+	for c in candidates:
+		if _map_data.is_valid_tile(c):
+			out.append(c)
+	if out.is_empty():
+		out.append(Vector3i(spawn_x, y_mid, 0))
+	return out
+
+func _reset_match_state() -> void:
+	_match_running = false
+	_pending_rosters.clear()
+	_team_map.clear()
+	_char_lookup.clear()
+	_player_to_peer.clear()
+	_peer_to_player.clear()
+	if _match_manager:
+		_match_manager.queue_free()
+		_match_manager = null
 
 # ---------------------------------------------------------------------------
 # Ability registry
