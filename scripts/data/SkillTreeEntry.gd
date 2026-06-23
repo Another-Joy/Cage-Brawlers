@@ -34,6 +34,8 @@ enum TreeType {
 @export var required_level: int = 1
 ## Which of the three skill trees this entry belongs to.
 @export var tree_type: TreeType = TreeType.CLASS
+## Tier position inside the source tree (1..5).
+@export var node_tier: int = 1
 ## IDs of entries that must be learned before this one can be unlocked.
 @export var prerequisites: Array[String] = []
 

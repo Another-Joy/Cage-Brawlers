@@ -50,9 +50,13 @@ enum MinorCondition {
 	## Self state
 	SELF_CROUCHED,
 	SELF_NOT_CROUCHED,
+	SELF_WEARING_HEAVY_ARMOR,
+	SELF_WEARING_MEDIUM_ARMOR,
+	SELF_WEARING_LIGHT_ARMOR,
 
 	## Weapon keyword on the active weapon
 	SELF_WEAPON_HAS_KEYWORD,   ## Requires string_param to name the keyword.
+	SELF_WEAPON_TYPE_IS,       ## Requires string_param to name the weapon type.
 
 	## Attack classification (relevant for ON_ATTACK / ON_DEAL_DAMAGE)
 	ATTACK_IS_SURPRISE,        ## The attack qualifies as a Surprise attack.

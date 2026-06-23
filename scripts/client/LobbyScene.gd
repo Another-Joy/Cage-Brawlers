@@ -420,7 +420,8 @@ func _load_editor(cd: Dictionary) -> void:
 		if entry["char_class"] == current_class:
 			class_sel_idx = i
 	_ed_class.select(class_sel_idx)
-	_ed_class.item_selected.connect(_on_class_changed)
+	_ed_class.disabled = true
+	_ed_class.tooltip_text = "Class is fixed once the character exists."
 	class_hbox.add_child(_ed_class)
 
 	vbox.add_child(HSeparator.new())
@@ -650,37 +651,89 @@ func _build_skills_tab(cd: Dictionary) -> Control:
 	var inner := VBoxContainer.new()
 	inner.add_theme_constant_override("separation", 4)
 	inner_m.add_child(inner)
+	var tree_char: CharacterData = RosterManager.dict_to_char(cd)
 
 	var lbl := Label.new()
-	lbl.text = "Active Abilities (max 4)"
+	lbl.text = "Skill Trees"
 	lbl.add_theme_font_size_override("font_size", 12)
 	inner.add_child(lbl)
 
 	var hint := Label.new()
-	hint.text = "Selected abilities will be available in battle."
+	hint.text = "Each unlock costs 1 SP. Tier T requires (T-1)*3 total points spent across all trees."
 	hint.add_theme_font_size_override("font_size", 11)
 	hint.modulate = Color(0.75, 0.75, 0.75)
 	inner.add_child(hint)
 
-	var active_ids: Array = cd.get("ability_ids", [])
+	var points_lbl := Label.new()
+	points_lbl.text = "SP: %d / %d available" % [tree_char.get_skill_points_remaining(), tree_char.get_skill_points_available()]
+	points_lbl.add_theme_font_size_override("font_size", 11)
+	inner.add_child(points_lbl)
+
 	_ed_skills.clear()
-	for ab in _abilities:
-		var row := HBoxContainer.new()
-		row.add_theme_constant_override("separation", 6)
-		inner.add_child(row)
+	for tree_idx in tree_char.skill_trees.size():
+		var tree_panel := PanelContainer.new()
+		inner.add_child(tree_panel)
+		var tree_margin := MarginContainer.new()
+		tree_margin.add_theme_constant_override("margin_left", 6)
+		tree_margin.add_theme_constant_override("margin_right", 6)
+		tree_margin.add_theme_constant_override("margin_top", 6)
+		tree_margin.add_theme_constant_override("margin_bottom", 6)
+		tree_panel.add_child(tree_margin)
+		var tree_box := VBoxContainer.new()
+		tree_box.add_theme_constant_override("separation", 4)
+		tree_margin.add_child(tree_box)
 
-		var cb := CheckBox.new()
-		cb.text = ab.entry_name
-		cb.button_pressed = active_ids.has(ab.entry_id)
-		cb.toggled.connect(_on_skill_toggled.bind(_ed_skills.size()))
-		row.add_child(cb)
-		_ed_skills.append(cb)
+		var tree_title := Label.new()
+		tree_title.text = SkillTreeManager.get_tree_display_name(tree_char, tree_idx)
+		tree_title.add_theme_font_size_override("font_size", 12)
+		tree_box.add_child(tree_title)
 
-		var desc := Label.new()
-		desc.text = "(%s)" % ab.entry_id
-		desc.add_theme_font_size_override("font_size", 10)
-		desc.modulate = Color(0.7, 0.7, 0.7)
-		row.add_child(desc)
+		var last_tier: int = -1
+		for node_idx in tree_char.skill_trees[tree_idx].size():
+			var entry: SkillTreeEntry = tree_char.skill_trees[tree_idx][node_idx] as SkillTreeEntry
+			if entry == null:
+				continue
+			if entry.node_tier != last_tier:
+				last_tier = entry.node_tier
+				var tier_lbl := Label.new()
+				tier_lbl.text = "Tier %d" % entry.node_tier
+				tier_lbl.add_theme_font_size_override("font_size", 11)
+				tier_lbl.modulate = Color(0.8, 0.85, 0.95)
+				tree_box.add_child(tier_lbl)
+
+			var row := HBoxContainer.new()
+			row.add_theme_constant_override("separation", 6)
+			tree_box.add_child(row)
+
+			var text_box := VBoxContainer.new()
+			text_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			row.add_child(text_box)
+
+			var kind: String = "[Ability]" if entry is AbilityData else "[Skill]"
+			var name_lbl := Label.new()
+			name_lbl.text = "%s %s" % [kind, entry.entry_name]
+			text_box.add_child(name_lbl)
+
+			var desc_lbl := Label.new()
+			desc_lbl.text = entry.description
+			desc_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			desc_lbl.add_theme_font_size_override("font_size", 10)
+			desc_lbl.modulate = Color(0.72, 0.72, 0.72)
+			text_box.add_child(desc_lbl)
+
+			var btn := Button.new()
+			var is_unlocked: bool = tree_char.has_unlocked_skill(entry.entry_id)
+			if is_unlocked:
+				btn.text = "Unlocked"
+				btn.disabled = true
+			else:
+				var unlock_err: String = SkillTreeManager.get_unlock_error(tree_char, tree_idx, node_idx)
+				btn.text = "Unlock"
+				btn.disabled = unlock_err != ""
+				btn.tooltip_text = unlock_err if unlock_err != "" else "Spend 1 SP to unlock"
+				btn.pressed.connect(_on_unlock_skill_pressed.bind(tree_idx, node_idx))
+			row.add_child(btn)
+			_ed_skills.append(btn)
 
 	_ed_skill_err = Label.new()
 	_ed_skill_err.add_theme_color_override("font_color", Color(1.0, 0.35, 0.35))
@@ -1014,33 +1067,20 @@ func _on_ammo_changed(value: float, key: String) -> void:
 # Signals — Editor skills
 # ---------------------------------------------------------------------------
 
-func _on_skill_toggled(pressed: bool, skill_idx: int) -> void:
-	if _loading or _editor_idx < 0:
+func _on_unlock_skill_pressed(tree_idx: int, node_idx: int) -> void:
+	if _loading or _editor_idx < 0 or _editor_idx >= RosterManager.roster.size():
 		return
-	var cd: Dictionary = RosterManager.roster[_editor_idx].duplicate()
-	var ids: Array = Array(cd.get("ability_ids", []))
-
-	if pressed:
-		# Count currently selected
-		var count: int = 0
-		for cb in _ed_skills:
-			if cb.button_pressed:
-				count += 1
-		if count > 4:
-			_ed_skill_err.text = "⚠ Max 4 active abilities."
-			_ed_skills[skill_idx].button_pressed = false
-			return
+	var char_data: CharacterData = RosterManager.dict_to_char(RosterManager.roster[_editor_idx])
+	var err: String = SkillTreeManager.unlock_entry(char_data, tree_idx, node_idx)
+	if err != "":
+		if _ed_skill_err:
+			_ed_skill_err.text = "⚠ " + err
+		_play_status.text = "⚠ " + err
+		return
+	if _ed_skill_err:
 		_ed_skill_err.text = ""
-		var ab: AbilityData = _abilities[skill_idx]
-		if not ids.has(ab.entry_id):
-			ids.append(ab.entry_id)
-	else:
-		_ed_skill_err.text = ""
-		if skill_idx < _abilities.size():
-			ids.erase(_abilities[skill_idx].entry_id)
-
-	cd["ability_ids"] = ids
-	RosterManager.update_char(_editor_idx, cd)
+	RosterManager.update_char(_editor_idx, RosterManager.char_to_dict(char_data))
+	_load_editor(RosterManager.roster[_editor_idx])
 
 # ---------------------------------------------------------------------------
 # Signals — Editor save/new
@@ -1116,23 +1156,11 @@ func _save_current_character() -> void:
 	if _ed_armor:
 		cd["armor_path"] = _get_option_path(_ed_armor)
 
-	var ids: Array[String] = []
-	for i in min(_ed_skills.size(), _abilities.size()):
-		if _ed_skills[i].button_pressed:
-			ids.append((_abilities[i] as AbilityData).entry_id)
-	cd["ability_ids"] = ids
-
 	var equip_err: String = RosterManager.validate_equipment(cd.get("main_hand_path"), cd.get("off_hand_path"))
 	if _ed_equip_err:
 		_ed_equip_err.text = equip_err
 	if equip_err != "":
 		_play_status.text = "⚠ " + equip_err
-		return
-
-	if ids.size() > 4:
-		if _ed_skill_err:
-			_ed_skill_err.text = "⚠ Max 4 active abilities."
-		_play_status.text = "⚠ Max 4 active abilities."
 		return
 	if _ed_skill_err:
 		_ed_skill_err.text = ""
@@ -1149,7 +1177,7 @@ func _on_roster_changed() -> void:
 	_refresh_char_list()
 	# Re-load editor content if the selected char was changed externally.
 	if _editor_idx >= 0 and _editor_idx < RosterManager.roster.size():
-		_refresh_derived_stats()
+		_load_editor(RosterManager.roster[_editor_idx])
 	elif RosterManager.roster.is_empty():
 		_editor_idx = -1
 		_show_editor_placeholder()

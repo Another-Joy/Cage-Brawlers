@@ -45,8 +45,6 @@ var _player_to_peer: Dictionary = {}
 var _char_lookup: Dictionary = {}
 ## player_id (String) → Array[CharacterData]
 var _team_map: Dictionary = {}
-## ability_id (String) → AbilityData: loaded once at match start.
-var _ability_registry: Dictionary = {}
 
 var _match_running: bool = false
 
@@ -121,7 +119,6 @@ func _start_match_from_rosters() -> void:
 	_match_running = true
 	print("[ServerGame] Both rosters received — building match…")
 
-	_load_ability_registry()
 	_load_selected_map_or_fallback()
 
 	var peer_ids: Array = _pending_rosters.keys()
@@ -190,11 +187,6 @@ func _build_team_from_roster(dicts: Array, player_id: String) -> Array[Character
 		cd.character_id = "%s_%s" % [player_id, cd.character_id]
 		ClassDefinitions.initialise_character_health(cd)
 		cd.initialise_armor_hp()
-		# Inject the abilities the player selected in the lobby.
-		var ability_ids: Array = dict.get("ability_ids", [])
-		_inject_abilities(cd, ability_ids)
-		# Inject passive skills granted by equipped items (e.g. Crypt Candle).
-		_inject_equipment_skills(cd)
 		team.append(cd)
 	return team
 
@@ -294,7 +286,7 @@ func handle_action(peer_id: int, action: Dictionary) -> void:
 
 		"ability":
 			var ability_id: String = action.get("ability_id", "")
-			var ability: AbilityData = _ability_registry.get(ability_id, null)
+			var ability: AbilityData = _find_ability_for_character(char_data, ability_id)
 			if ability == null:
 				_send_event(peer_id, "WARN: unknown ability_id '%s'" % ability_id)
 				return
@@ -546,28 +538,27 @@ func _serialize_char(char_data: CharacterData, player_id: String, full_info: boo
 
 	# ── Abilities ──────────────────────────────────────────────────────────
 	var abilities_out: Array = []
-	for tree in char_data.skill_trees:
-		for entry in tree:
-			if entry is AbilityData:
-				var ab: AbilityData = entry as AbilityData
-				# Compute effective range for the ability (for HUD range-preview).
-				var ab_range: int = 0
-				for act in ab.actions:
-					var act_a: AbilityAction = act as AbilityAction
-					if act_a.action_type == AbilityAction.ActionType.ATTACK:
-						var base_r: int = char_data.main_hand_slot.attack_range if char_data.main_hand_slot else 1
-						ab_range = maxi(ab_range, base_r + ab.range_modifier + act_a.range_override)
-					elif act_a.action_type == AbilityAction.ActionType.MOVE:
-						var spd: int = char_data.get_base_movement_speed() if act_a.range_override == 0 else act_a.range_override
-						ab_range = maxi(ab_range, spd)
-					elif act_a.range_override > 0:
-						ab_range = maxi(ab_range, act_a.range_override)
-				abilities_out.append({
-					"id":       ab.entry_id,
-					"name":     ab.entry_name,
-					"description": ab.description,
-					"phases":   ab.phases,
-					"cooldown_turns": ab.cooldown_turns,
+	for entry in char_data.get_effective_skill_entries():
+		if entry is AbilityData:
+			var ab: AbilityData = entry as AbilityData
+			# Compute effective range for the ability (for HUD range-preview).
+			var ab_range: int = 0
+			for act in ab.actions:
+				var act_a: AbilityAction = act as AbilityAction
+				if act_a.action_type == AbilityAction.ActionType.ATTACK:
+					var base_r: int = char_data.main_hand_slot.attack_range if char_data.main_hand_slot else 1
+					ab_range = maxi(ab_range, base_r + ab.range_modifier + act_a.range_override)
+				elif act_a.action_type == AbilityAction.ActionType.MOVE:
+					var spd: int = char_data.get_base_movement_speed() if act_a.range_override == 0 else act_a.range_override
+					ab_range = maxi(ab_range, spd)
+				elif act_a.range_override > 0:
+					ab_range = maxi(ab_range, act_a.range_override)
+			abilities_out.append({
+				"id":       ab.entry_id,
+				"name":     ab.entry_name,
+				"description": ab.description,
+				"phases":   ab.phases,
+				"cooldown_turns": ab.cooldown_turns,
 					"cooldown_remaining": char_data.ability_cooldowns.get(ab.entry_id, 0),
 					"needs_target": _ability_needs_target(ab),
 					"target_count": ab.target_count,
@@ -861,72 +852,6 @@ func _reset_match_state() -> void:
 		_match_manager = null
 
 # ---------------------------------------------------------------------------
-# Ability registry
-# ---------------------------------------------------------------------------
-
-const _ABILITY_FILES: Array[String] = [
-	"res://resources/abilities/achiles_bane.tres",
-	"res://resources/abilities/drain_life.tres",
-	"res://resources/abilities/hip_shot.tres",
-	"res://resources/abilities/peek_shot.tres",
-	"res://resources/abilities/reckless_assault.tres",
-	"res://resources/abilities/regenerate.tres",
-	"res://resources/abilities/riposte.tres",
-]
-
-func _load_ability_registry() -> void:
-	_ability_registry.clear()
-	for full_path in _ABILITY_FILES:
-		var res: Resource = load(full_path)
-		if res is AbilityData:
-			var ab: AbilityData = res as AbilityData
-			_ability_registry[ab.entry_id] = ab
-		else:
-			push_error("[ServerGame] Failed to load ability: %s" % full_path)
-	print("[ServerGame] Loaded %d abilities." % _ability_registry.size())
-
-## Injects abilities into char_data from the given ability_ids list.
-## Falls back to a class-based default if the list is empty.
-func _inject_abilities(char_data: CharacterData, ability_ids: Array) -> void:
-	char_data.skill_trees = [[], [], []]
-	for aid in ability_ids:
-		if _ability_registry.has(aid):
-			char_data.skill_trees[0].append(_ability_registry[aid])
-	# Fall back to a class default when no abilities were selected.
-	if char_data.skill_trees[0].is_empty():
-		_inject_class_defaults(char_data)
-
-func _inject_class_defaults(char_data: CharacterData) -> void:
-	var ability_id: String = ""
-	match char_data.character_class:
-		CharacterData.CharacterClass.FIGHTER:
-			ability_id = "riposte"
-		CharacterData.CharacterClass.BRAWLER:
-			ability_id = "reckless_assault"
-		CharacterData.CharacterClass.MAGE:
-			ability_id = "drain_life"
-		CharacterData.CharacterClass.MARKSMAN:
-			ability_id = "hip_shot"
-		CharacterData.CharacterClass.CLERIC:
-			ability_id = "regenerate"
-	if ability_id != "" and _ability_registry.has(ability_id):
-		char_data.skill_trees[0].append(_ability_registry[ability_id])
-
-## Collects granted_skills from all currently equipped items and appends them
-## to skill_trees[1] (attribute tree). This ensures passive skills such as
-## Crypt Candle's "Dark Flicker" are active when SkillProcessor evaluates them.
-func _inject_equipment_skills(char_data: CharacterData) -> void:
-	var slots: Array = [char_data.main_hand_slot, char_data.off_hand_slot, char_data.armor_slot]
-	for slot in slots:
-		if slot == null:
-			continue
-		var equip: EquipmentData = slot as EquipmentData
-		if equip == null:
-			continue
-		for entry in equip.granted_skills:
-			char_data.skill_trees[1].append(entry)
-
-# ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
@@ -938,6 +863,14 @@ func _ability_needs_target(ability: AbilityData) -> bool:
 			return true
 	return false
 
+func _find_ability_for_character(char_data: CharacterData, ability_id: String) -> AbilityData:
+	if char_data == null or ability_id == "":
+		return null
+	for entry in char_data.get_effective_skill_entries():
+		if entry is AbilityData and entry.entry_id == ability_id:
+			return entry as AbilityData
+	return null
+
 func _get_player_id_for_char(char_data: CharacterData) -> String:
 	if char_data == null:
 		return ""
@@ -947,9 +880,8 @@ func _get_player_id_for_char(char_data: CharacterData) -> String:
 	return ""
 
 func _char_can_vault(char_data: CharacterData) -> bool:
-	for tree in char_data.skill_trees:
-		for entry in tree:
-			if (entry as SkillTreeEntry).has_keyword("Vault"):
-				return true
+	for entry in char_data.get_effective_skill_entries():
+		if entry.has_keyword("Vault"):
+			return true
 	return false
 

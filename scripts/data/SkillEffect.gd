@@ -25,6 +25,7 @@ enum EffectType {
 	                         ## (e.g. flat_value = 30 means +30%).
 	ADD_RANGE,               ## Add flat tiles to the attack's effective range.
 	                         ## flat_value is the tile count (can be negative).
+	REDUCE_WEIGHT,           ## Reduce total carried/equipped burden by flat_value kg.
 }
 
 # ---------------------------------------------------------------------------

@@ -171,6 +171,10 @@ func create_new_char(character_name: String = "") -> int:
 		"bolts_count": 0,
 		"arrows_count": 0,
 		"potions_count": 0,
+		"skill_tree_seed": 0,
+		"skill_tree_attribute": "",
+		"skill_tree_weapon_category": -1,
+		"unlocked_skill_ids": [],
 		"ability_ids": [],
 	}
 	roster.append(new_dict)
@@ -205,11 +209,11 @@ func remove_char(roster_idx: int) -> String:
 
 ## Converts a CharacterData resource to a JSON-safe Dictionary.
 func char_to_dict(cd: CharacterData) -> Dictionary:
+	SkillTreeManager.ensure_character_skill_trees(cd)
 	var ab_ids: Array = []
-	for tree in cd.skill_trees:
-		for entry in tree:
-			if entry is AbilityData:
-				ab_ids.append((entry as AbilityData).entry_id)
+	for entry in cd.get_effective_skill_entries():
+		if entry is AbilityData:
+			ab_ids.append((entry as AbilityData).entry_id)
 	return {
 		"character_id":    cd.character_id,
 		"character_name":  cd.character_name,
@@ -229,6 +233,10 @@ func char_to_dict(cd: CharacterData) -> Dictionary:
 		"bolts_count":     cd.bolts_count,
 		"arrows_count":    cd.arrows_count,
 		"potions_count":   cd.potions_count,
+		"skill_tree_seed": cd.skill_tree_seed,
+		"skill_tree_attribute": cd.skill_tree_attribute,
+		"skill_tree_weapon_category": cd.skill_tree_weapon_category,
+		"unlocked_skill_ids": cd.unlocked_skill_ids.duplicate(),
 		"ability_ids":     ab_ids,
 	}
 
@@ -250,6 +258,14 @@ func dict_to_char(d: Dictionary) -> CharacterData:
 	cd.bolts_count     = int(d.get("bolts_count", 0))
 	cd.arrows_count    = int(d.get("arrows_count", 0))
 	cd.potions_count   = int(d.get("potions_count", 0))
+	cd.skill_tree_seed = int(d.get("skill_tree_seed", 0))
+	cd.skill_tree_attribute = str(d.get("skill_tree_attribute", ""))
+	cd.skill_tree_weapon_category = int(d.get("skill_tree_weapon_category", -1))
+	cd.unlocked_skill_ids.clear()
+	for raw_id in Array(d.get("unlocked_skill_ids", [])):
+		var id: String = str(raw_id)
+		if id != "" and not cd.unlocked_skill_ids.has(id):
+			cd.unlocked_skill_ids.append(id)
 
 	var class_path: Variant = d.get("class_data_path", null)
 	if class_path is String and class_path != "":
@@ -267,7 +283,7 @@ func dict_to_char(d: Dictionary) -> CharacterData:
 	if ar is String and ar != "":
 		cd.armor_slot = load(ar) as ArmorData
 
-	cd.skill_trees = [[], [], []]
+	SkillTreeManager.ensure_character_skill_trees(cd)
 	return cd
 
 # ---------------------------------------------------------------------------
@@ -335,6 +351,16 @@ func _normalise_char_dict(raw: Dictionary) -> Dictionary:
 	clean["bolts_count"] = int(clean.get("bolts_count", 0))
 	clean["arrows_count"] = int(clean.get("arrows_count", 0))
 	clean["potions_count"] = int(clean.get("potions_count", 0))
+	clean["skill_tree_seed"] = int(clean.get("skill_tree_seed", 0))
+	clean["skill_tree_attribute"] = str(clean.get("skill_tree_attribute", ""))
+	clean["skill_tree_weapon_category"] = int(clean.get("skill_tree_weapon_category", -1))
+	var raw_unlocked: Array = Array(clean.get("unlocked_skill_ids", []))
+	var unlocked: Array[String] = []
+	for raw_id in raw_unlocked:
+		var unlocked_id: String = str(raw_id)
+		if unlocked_id != "" and not unlocked.has(unlocked_id):
+			unlocked.append(unlocked_id)
+	clean["unlocked_skill_ids"] = unlocked
 	var raw_ids: Array = Array(clean.get("ability_ids", []))
 	var ids: Array[String] = []
 	for v in raw_ids:
@@ -342,4 +368,8 @@ func _normalise_char_dict(raw: Dictionary) -> Dictionary:
 		if id != "" and not ids.has(id):
 			ids.append(id)
 	clean["ability_ids"] = ids
+	var hydrated: CharacterData = dict_to_char(clean)
+	clean["skill_tree_seed"] = hydrated.skill_tree_seed
+	clean["skill_tree_attribute"] = hydrated.skill_tree_attribute
+	clean["skill_tree_weapon_category"] = hydrated.skill_tree_weapon_category
 	return clean

@@ -76,8 +76,14 @@ enum CharacterClass {
 ## Three skill trees stored as arrays of SkillTreeEntry resources
 ## (either SkillData for passive skills or AbilityData for active abilities).
 @export var skill_trees: Array[Array] = [[], [], []]
-## Points spent in each tree node (parallel array to each tree).
-@export var skill_points_spent: Array[int] = []
+## Random seed used to generate the character's 3 trees deterministically.
+@export var skill_tree_seed: int = 0
+## Which attribute was selected for the attribute tree.
+@export var skill_tree_attribute: String = ""
+## Which weapon category was selected for the weapon tree.
+@export var skill_tree_weapon_category: int = -1
+## IDs of skill nodes that the character has unlocked.
+@export var unlocked_skill_ids: Array[String] = []
 
 # ---------------------------------------------------------------------------
 # Combat State (server-side, not persisted to save file)
@@ -173,6 +179,13 @@ func get_total_burden_weight() -> float:
 	total += bolts_count * 0.1
 	total += arrows_count * 0.05
 	total += potions_count * 0.5
+	var ctx: SkillProcessor.SkillContext = SkillProcessor.SkillContext.new(
+		self,
+		SkillCondition.MajorCondition.ALWAYS,
+		self,
+		null,
+		null)
+	total = maxf(0.0, total - float(SkillProcessor.get_weight_reduction(ctx)))
 	return total
 
 ## Returns the movement speed penalty caused by encumbrance (0 if not overencumbered).
@@ -408,6 +421,67 @@ func is_dual_wielding() -> bool:
 	if not off_hand_slot is WeaponData:
 		return false
 	return (off_hand_slot as WeaponData).has_keyword("Light")
+
+## Returns the total skill points available from level progression.
+func get_skill_points_available() -> int:
+	return max(0, (level - 1) * 2)
+
+## Returns the number of points already spent in the three trees.
+func get_skill_points_spent() -> int:
+	return unlocked_skill_ids.size()
+
+## Returns how many unspent skill points remain.
+func get_skill_points_remaining() -> int:
+	return max(0, get_skill_points_available() - get_skill_points_spent())
+
+## Returns true if the character has unlocked the given skill/ability id.
+func has_unlocked_skill(entry_id: String) -> bool:
+	return unlocked_skill_ids.has(entry_id)
+
+## Returns true if the requested tier is globally unlocked.
+func can_unlock_skill_tree_tier(tier: int) -> bool:
+	if tier <= 1:
+		return true
+	return get_skill_points_spent() >= (tier - 1) * 3
+
+## Finds the generated tree entry by id, or null when absent.
+func find_skill_tree_entry(entry_id: String) -> SkillTreeEntry:
+	for tree in skill_trees:
+		for raw_entry in tree:
+			var entry: SkillTreeEntry = raw_entry as SkillTreeEntry
+			if entry != null and entry.entry_id == entry_id:
+				return entry
+	return null
+
+## Returns only the unlocked tree entries plus all equipment-granted entries.
+func get_effective_skill_entries() -> Array[SkillTreeEntry]:
+	var out: Array[SkillTreeEntry] = []
+	var seen: Dictionary = {}
+	for tree in skill_trees:
+		for raw_entry in tree:
+			var entry: SkillTreeEntry = raw_entry as SkillTreeEntry
+			if entry == null:
+				continue
+			if not has_unlocked_skill(entry.entry_id):
+				continue
+			if seen.has(entry.entry_id):
+				continue
+			seen[entry.entry_id] = true
+			out.append(entry)
+	for slot in [main_hand_slot, off_hand_slot, armor_slot]:
+		var equip: EquipmentData = slot as EquipmentData
+		if equip == null:
+			continue
+		for raw_entry in equip.granted_skills:
+			var entry: SkillTreeEntry = raw_entry as SkillTreeEntry
+			if entry == null:
+				continue
+			var key: String = entry.entry_id if entry.entry_id != "" else entry.resource_path
+			if seen.has(key):
+				continue
+			seen[key] = true
+			out.append(entry)
+	return out
 
 # ---------------------------------------------------------------------------
 # Highest Stat Utility (used for attribute skill tree selection)

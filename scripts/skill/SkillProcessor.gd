@@ -83,6 +83,10 @@ static func get_reliability_bonus(ctx: SkillContext, dice_roller: DiceRoller = n
 static func get_range_bonus(ctx: SkillContext, dice_roller: DiceRoller = null) -> int:
 	return _sum_effects(ctx, SkillEffect.EffectType.ADD_RANGE, dice_roller)
 
+## Returns the total burden reduction granted by passive skills.
+static func get_weight_reduction(ctx: SkillContext, dice_roller: DiceRoller = null) -> int:
+	return _sum_effects(ctx, SkillEffect.EffectType.REDUCE_WEIGHT, dice_roller)
+
 ## Collects all DICE-type ADD_DAMAGE SkillEffects from triggered passive skills.
 ## These are returned as an Array[SkillEffect] so the caller can roll each one
 ## as a separate DiceValue in the attack bundle (rather than pre-summing them).
@@ -90,17 +94,16 @@ static func collect_bonus_damage_dice(ctx: SkillContext) -> Array:
 	var effects: Array = []
 	if ctx.owner == null:
 		return effects
-	for tree in ctx.owner.skill_trees:
-		for entry in tree:
-			if not entry is SkillData:
-				continue
-			var skill: SkillData = entry as SkillData
-			if _skill_triggers(skill, ctx):
-				for effect in skill.effects:
-					if effect.effect_type == SkillEffect.EffectType.ADD_DAMAGE \
-							and effect.value_type == SkillEffect.ValueType.DICE \
-							and effect.dice != null:
-						effects.append(effect)
+	for entry in ctx.owner.get_effective_skill_entries():
+		if not entry is SkillData:
+			continue
+		var skill: SkillData = entry as SkillData
+		if _skill_triggers(skill, ctx):
+			for effect in skill.effects:
+				if effect.effect_type == SkillEffect.EffectType.ADD_DAMAGE \
+						and effect.value_type == SkillEffect.ValueType.DICE \
+						and effect.dice != null:
+					effects.append(effect)
 	return effects
 
 # ---------------------------------------------------------------------------
@@ -118,13 +121,12 @@ static func _sum_effects(
 		return 0
 
 	var total: int = 0
-	for tree in ctx.owner.skill_trees:
-		for entry in tree:
-			if not entry is SkillData:
-				continue  # AbilityData entries are not passive; skip.
-			var skill: SkillData = entry as SkillData
-			if _skill_triggers(skill, ctx):
-				total += _sum_skill_effects(skill, effect_type, ctx, dice_roller)
+	for entry in ctx.owner.get_effective_skill_entries():
+		if not entry is SkillData:
+			continue  # AbilityData entries are not passive; skip.
+		var skill: SkillData = entry as SkillData
+		if _skill_triggers(skill, ctx):
+			total += _sum_skill_effects(skill, effect_type, ctx, dice_roller)
 
 	return total
 
@@ -140,16 +142,15 @@ static func _sum_non_dice_effects(
 		return 0
 
 	var total: int = 0
-	for tree in ctx.owner.skill_trees:
-		for entry in tree:
-			if not entry is SkillData:
-				continue
-			var skill: SkillData = entry as SkillData
-			if _skill_triggers(skill, ctx):
-				for effect in skill.effects:
-					if effect.effect_type == effect_type \
-							and effect.value_type != SkillEffect.ValueType.DICE:
-						total += _resolve_effect_value(effect, ctx, dice_roller)
+	for entry in ctx.owner.get_effective_skill_entries():
+		if not entry is SkillData:
+			continue
+		var skill: SkillData = entry as SkillData
+		if _skill_triggers(skill, ctx):
+			for effect in skill.effects:
+				if effect.effect_type == effect_type \
+						and effect.value_type != SkillEffect.ValueType.DICE:
+					total += _resolve_effect_value(effect, ctx, dice_roller)
 	return total
 
 ## Returns true if any of the skill's SkillCondition triggers matches ctx.
@@ -200,8 +201,16 @@ static func _minor_matches(cond: SkillCondition, ctx: SkillContext) -> bool:
 			return ctx.owner != null and ctx.owner.is_crouched
 		SkillCondition.MinorCondition.SELF_NOT_CROUCHED:
 			return ctx.owner != null and not ctx.owner.is_crouched
+		SkillCondition.MinorCondition.SELF_WEARING_HEAVY_ARMOR:
+			return _self_armor_type(ctx) == ArmorData.ArmorType.HEAVY
+		SkillCondition.MinorCondition.SELF_WEARING_MEDIUM_ARMOR:
+			return _self_armor_type(ctx) == ArmorData.ArmorType.MEDIUM
+		SkillCondition.MinorCondition.SELF_WEARING_LIGHT_ARMOR:
+			return _self_armor_type(ctx) == ArmorData.ArmorType.LIGHT
 		SkillCondition.MinorCondition.SELF_WEAPON_HAS_KEYWORD:
 			return ctx.weapon != null and ctx.weapon.has_keyword(cond.string_param)
+		SkillCondition.MinorCondition.SELF_WEAPON_TYPE_IS:
+			return ctx.weapon != null and ctx.weapon.get_weapon_type_name() == cond.string_param.to_lower()
 	return false
 
 ## Returns the ArmorType of the target's equipped armor, or LIGHT if none.
@@ -209,6 +218,11 @@ static func _target_armor_type(ctx: SkillContext) -> ArmorData.ArmorType:
 	if ctx.target == null or ctx.target.armor_slot == null:
 		return ArmorData.ArmorType.LIGHT
 	return ctx.target.armor_slot.armor_type
+
+static func _self_armor_type(ctx: SkillContext) -> ArmorData.ArmorType:
+	if ctx.owner == null or ctx.owner.armor_slot == null:
+		return ArmorData.ArmorType.LIGHT
+	return ctx.owner.armor_slot.armor_type
 
 # ---------------------------------------------------------------------------
 # Internal: effect value resolution

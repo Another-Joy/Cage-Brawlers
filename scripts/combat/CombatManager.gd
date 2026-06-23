@@ -365,10 +365,9 @@ func _get_living_characters() -> Array[CharacterData]:
 
 ## Returns true if the character has a vault skill (stub; extend with real skill lookup).
 func _character_can_vault(character: CharacterData) -> bool:
-	for tree in character.skill_trees:
-		for entry in tree:
-			if (entry as SkillTreeEntry).has_keyword("Vault"):
-				return true
+	for entry in character.get_effective_skill_entries():
+		if entry.has_keyword("Vault"):
+			return true
 	return false
 
 ## Transitions the current phase to Ending (called after Main phase action is used).
@@ -414,6 +413,14 @@ func _apply_attack_result_with_riposte(
 
 	# Normal hit resolution.
 	if result.hit:
+		var reduction_ctx: SkillProcessor.SkillContext = SkillProcessor.SkillContext.new(
+			target,
+			SkillCondition.MajorCondition.ON_TAKE_DAMAGE,
+			attacker,
+			target,
+			weapon)
+		var passive_reduction: int = SkillProcessor.get_damage_reduction(reduction_ctx)
+		result.damage_dealt = maxf(0.0, result.damage_dealt - float(passive_reduction))
 		var knocked_down: bool = target.apply_damage(result.damage_dealt)
 		if knocked_down:
 			_on_character_knocked_down(target)
@@ -434,6 +441,14 @@ func _execute_riposte(riposte_user: CharacterData, original_attacker: CharacterD
 			riposte_user, original_attacker, weapon, null, counter_action)
 
 	if result.valid and result.hit:
+		var reduction_ctx: SkillProcessor.SkillContext = SkillProcessor.SkillContext.new(
+			original_attacker,
+			SkillCondition.MajorCondition.ON_TAKE_DAMAGE,
+			riposte_user,
+			original_attacker,
+			weapon)
+		var passive_reduction: int = SkillProcessor.get_damage_reduction(reduction_ctx)
+		result.damage_dealt = maxf(0.0, result.damage_dealt - float(passive_reduction))
 		var knocked_down: bool = original_attacker.apply_damage(result.damage_dealt)
 		if knocked_down:
 			_on_character_knocked_down(original_attacker)
@@ -549,10 +564,9 @@ func _evaluate_ability_condition(
 				"arrows":  return character.arrows_count > 0
 			return false
 		AbilityCondition.ConditionType.HAS_SKILL:
-			for tree in character.skill_trees:
-				for entry in tree:
-					if (entry as SkillTreeEntry).entry_id == condition.string_param:
-						return true
+			for entry in character.get_effective_skill_entries():
+				if entry.entry_id == condition.string_param:
+					return true
 			return false
 		AbilityCondition.ConditionType.TARGET_IN_RANGE:
 			# Basic range check using target and active weapon range.
