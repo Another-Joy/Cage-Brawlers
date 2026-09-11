@@ -61,6 +61,8 @@ enum MinorCondition {
 	## Attack classification (relevant for ON_ATTACK / ON_DEAL_DAMAGE)
 	ATTACK_IS_SURPRISE,        ## The attack qualifies as a Surprise attack.
 	ATTACK_IS_ABILITY,         ## The attack was made as part of an active Ability.
+	ATTACKING_WEAPON_IS_MAIN_HAND,
+	ATTACKING_WEAPON_IS_OFF_HAND,
 }
 
 # ---------------------------------------------------------------------------

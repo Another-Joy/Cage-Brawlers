@@ -1,0 +1,30 @@
+[gd_resource type="Resource" script_class="AbilityData" load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/AbilityData.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/data/AbilityAction.gd" id="2"]
+[ext_resource type="Script" path="res://scripts/data/AbilityCondition.gd" id="3"]
+
+[sub_resource type="Resource" id="cond_surprise"]
+script = ExtResource("3")
+condition_type = 7
+
+[sub_resource type="Resource" id="action_attack"]
+script = ExtResource("2")
+action_type = 0
+target_type = 2
+ignore_armor = true
+
+[sub_resource type="Resource" id="action_break"]
+script = ExtResource("2")
+action_type = 11
+target_type = 2
+
+[resource]
+script = ExtResource("1")
+entry_id = "twisted_strike"
+entry_name = "Twisted Strike"
+description = "Can only be used as a surprise attack. Make an attack that ignores armor. If the target already has an empty segment and the strike hits, break another segment."
+phases = 2
+conditions = Array[ExtResource("3")]([SubResource("cond_surprise")])
+weapon_requirements = Array[String](["dagger"])
+actions = Array[ExtResource("2")]([SubResource("action_attack"), SubResource("action_break")])

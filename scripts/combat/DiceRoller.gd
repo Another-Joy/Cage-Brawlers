@@ -3,18 +3,22 @@
 ## Supports multi-die bundles and an optional Reliability modifier.
 ##
 ## Reliability Formula:
-##   Reliability is a value in [0.0, 1.0] that biases the roll toward the
-##   maximum possible result, NOT toward the mean.
+##   Reliability uses 1.0 = 100% and is evaluated with a piecewise formula
+##   that supports values above 1.0 and below 0.0.
 ##
-##     adjusted = raw_roll + floor(reliability * (max_possible - raw_roll))
-##       where max_possible = dice_count * dice_sides
+##   Let M = max roll, m = min roll, Rs = rolled result, Rl = reliability.
 ##
-##   A reliability of 0.0 applies no adjustment (fully random).
-##   A reliability of 1.0 always returns the maximum roll.
-##   A reliability of 0.5 moves the roll halfway toward the maximum.
+##   If Rl > 1.0:
+##     M + apply_reliability(new roll, Rl - 2.0)
+##   If Rl >= 0.0:
+##     Rs + (Rl * (M - Rs))
+##   If -1.0 <= Rl < 0.0:
+##     Rs + (Rl * (Rs - m))
+##   If -2.0 <= Rl < -1.0:
+##     -(Rs + ((Rl + 1.0) * (Rs - m)))
 ##
-##   The reliability bonus is applied after all other dice buffs but before
-##   critical hit multipliers (per spec).
+##   The reliability adjustment is applied after all other dice buffs but
+##   before critical hit multipliers (per spec).
 class_name DiceRoller
 extends RefCounted
 
@@ -38,7 +42,7 @@ func set_seed(seed_value: int) -> void:
 ##   dice_count        - Number of dice to roll (must be >= 1).
 ##   dice_sides        - Number of sides on each die (must be >= 2).
 ##   uses_reliability  - Whether to apply the reliability adjustment formula.
-##   reliability_value - Reliability factor in range [0.0, 1.0].
+##   reliability_value - Reliability factor where 1.0 = 100%.
 ##
 ## Returns the bundled integer result after optional reliability adjustment.
 func roll_dice(
@@ -75,16 +79,26 @@ func roll_initiative(bonus: int = 0) -> int:
 # Reliability Formula
 # ---------------------------------------------------------------------------
 
-## Applies the reliability adjustment to a raw roll total.
-##
-## Pushes the result toward the maximum possible value:
-##   adjusted = raw_roll + floor(reliability * (max_possible - raw_roll))
-##   where max_possible = dice_count * dice_sides
-##
-## This replaces the old mean-targeting formula and matches the spec:
-## "the max and min roll of that attack (total of dices)".
+## Applies the piecewise reliability adjustment to a raw roll total.
 func _apply_reliability(raw_roll: int, dice_count: int, dice_sides: int, reliability: float) -> int:
-	var clamped_reliability: float = clampf(reliability, 0.0, 1.0)
+	var min_possible: float = float(dice_count)
 	var max_possible: float = float(dice_count * dice_sides)
-	var adjusted: float = raw_roll + floor(clamped_reliability * (max_possible - raw_roll))
-	return int(adjusted)
+	var rs: float = float(raw_roll)
+
+	if reliability > 1.0:
+		# Overflow reliability: guarantee max roll and recurse with reliability - 200%.
+		var reroll: int = roll_dice(dice_count, dice_sides, false)
+		return roundi(max_possible + _apply_reliability(reroll, dice_count, dice_sides, reliability - 2.0))
+
+	if reliability >= 0.0:
+		return roundi(rs + (reliability * (max_possible - rs)))
+
+	if reliability >= -1.0:
+		return roundi(rs + (reliability * (rs - min_possible)))
+
+	if reliability >= -2.0:
+		return roundi(-(rs + ((reliability + 1.0) * (rs - min_possible))))
+
+	# For values below -200%, keep extending the pattern by adding minimum rolls.
+	var reroll_negative: int = roll_dice(dice_count, dice_sides, false)
+	return roundi(-min_possible + _apply_reliability(reroll_negative, dice_count, dice_sides, reliability + 2.0))

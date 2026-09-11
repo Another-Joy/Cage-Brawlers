@@ -4,18 +4,27 @@
 ## trigger conditions are met — they are never manually activated by the player.
 ## Activatable abilities (things the player uses during a phase) are AbilityData.
 ##
-## A skill triggers when ANY of its SkillCondition entries matches the current
-## combat context (OR semantics between triggers). When triggered, ALL of its
-## SkillEffect entries are applied simultaneously.
+## A skill triggers when its SkillCondition entries match the current
+## combat context according to trigger_match_mode (ANY/OR by default).
+## When triggered, ALL of its SkillEffect entries are applied simultaneously.
 class_name SkillData
 extends SkillTreeEntry
 
 # ---------------------------------------------------------------------------
-# Trigger Conditions (OR)
+# Trigger Conditions (ANY/ALL)
 # ---------------------------------------------------------------------------
 
+enum TriggerMatchMode {
+	ANY,
+	ALL,
+}
+
+## Controls how trigger conditions are combined.
+## ANY = OR semantics, ALL = AND semantics.
+@export var trigger_match_mode: TriggerMatchMode = TriggerMatchMode.ANY
+
 ## One or more (Major + optional Minor) condition pairs.
-## The skill fires if at least one pair matches the current combat context.
+## The skill fires according to trigger_match_mode.
 ## Leave empty to mean "always active" (equivalent to a single ALWAYS trigger).
 @export var triggers: Array[SkillCondition] = []
 

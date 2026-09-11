@@ -1,0 +1,81 @@
+{
+    
+  "brawler": [
+    {"type":"skill","id":"brawler_brace","name":"Brace","description":"Reduce incoming damage.","tier":1,"triggers":[{"major":"ON_TAKE_DAMAGE"}],"effects":[{"type":"REDUCE_INCOMING_DAMAGE","flat":1}]},
+    {"type":"skill","id":"brawler_brawlcraft","name":"Brawlcraft","description":"Gain physical damage.","tier":1,"triggers":[{"major":"ON_DEAL_DAMAGE","minor":"ATTACKER_USING_PHYSICAL"}],"effects":[{"type":"ADD_DAMAGE","flat":1}]},
+    {"type":"skill","id":"brawler_stability","name":"Stability","description":"Improve reliability in close fights.","tier":2,"triggers":[{"major":"ON_ATTACK","minor":"ATTACKER_USING_PHYSICAL"}],"effects":[{"type":"ADD_RELIABILITY","flat":10}]},
+    {"type":"skill","id":"brawler_mass_shift","name":"Mass Shift","description":"Reduce burden while loaded.","tier":2,"effects":[{"type":"REDUCE_WEIGHT","flat":2}]},
+    {"type":"ability","id":"brawler_signature","ability_id":"reckless_assault","name":"Reckless Assault","description":"Brawler signature surge.","tier":3},
+    {"type":"skill","id":"brawler_skullguard","name":"Skullguard","description":"Improve heavy armor defense.","tier":3,"triggers":[{"major":"ON_TAKE_DAMAGE","minor":"SELF_WEARING_HEAVY_ARMOR"}],"effects":[{"type":"REDUCE_INCOMING_DAMAGE","flat":1}]},
+    {"type":"skill","id":"brawler_breakthrough","name":"Breakthrough","description":"Improve attack accuracy.","tier":4,"triggers":[{"major":"ON_ATTACK","minor":"ATTACKER_USING_PHYSICAL"}],"effects":[{"type":"ADD_ATTACK_ACCURACY","flat":6}]},
+    {"type":"skill","id":"brawler_deadlock","name":"Deadlock","description":"Enemy tiles within 2 range cost +1 movement.","tier":4,"keywords":["EnemyMoveCostAura2"],"effects":[]},
+    {"type":"skill","id":"brawler_mastery","name":"Arena Engine","description":"Capstone brawler bonuses.","tier":5,"effects":[{"type":"ADD_DAMAGE","flat":2},{"type":"REDUCE_INCOMING_DAMAGE","flat":1},{"type":"REDUCE_WEIGHT","flat":1}]}
+  ],
+  "fighter": [
+    {"type":"skill","id":"fighter_iron_edge","name":"Iron Edge","description":"Gain sword accuracy.","tier":1,"triggers":[{"major":"ON_ATTACK","minor":"ATTACKER_USING_PHYSICAL"}],"effects":[{"type":"ADD_ATTACK_ACCURACY","flat":6}]},
+    {"type":"skill","id":"fighter_guarded_step","name":"Guarded Step","description":"Heavy armor users take less damage.","tier":1,"triggers":[{"major":"ON_TAKE_DAMAGE","minor":"SELF_WEARING_HEAVY_ARMOR"}],"effects":[{"type":"REDUCE_INCOMING_DAMAGE","flat":1}]},
+    {"type":"skill","id":"fighter_battle_weight","name":"Battle Weight","description":"Reduce carried burden.","tier":2,"effects":[{"type":"REDUCE_WEIGHT","flat":1}]},
+    {"type":"skill","id":"fighter_vanguard","name":"Vanguard","description":"Gain damage when striking.","tier":2,"triggers":[{"major":"ON_DEAL_DAMAGE","minor":"ATTACKER_USING_PHYSICAL"}],"effects":[{"type":"ADD_DAMAGE","flat":1}]},
+    {"type":"ability","id":"fighter_signature","ability_id":"riposte","name":"Riposte","description":"Counter-strike opening.","tier":3},
+    {"type":"skill","id":"fighter_wall","name":"Wall Form","description":"Further improve heavy defense.","tier":3,"triggers":[{"major":"ON_TAKE_DAMAGE","minor":"SELF_WEARING_HEAVY_ARMOR"}],"effects":[{"type":"REDUCE_INCOMING_DAMAGE","flat":1}]},
+    {"type":"skill","id":"fighter_line_hold","name":"Line Hold","description":"Improve reliability in melee exchanges.","tier":4,"triggers":[{"major":"ON_ATTACK","minor":"ATTACKER_USING_PHYSICAL"}],"effects":[{"type":"ADD_RELIABILITY","flat":10}]},
+    {"type":"skill","id":"fighter_shock_stride","name":"Shock Stride","description":"Gain movement while armored.","tier":4,"effects":[{"type":"MODIFY_MOVEMENT","flat":1}]},
+    {"type":"skill","id":"fighter_mastery","name":"Paragon of Steel","description":"Capstone fighter bonuses.","tier":5,"triggers":[{"major":"ON_ATTACK","minor":"ATTACKER_USING_PHYSICAL"}],"effects":[{"type":"ADD_ATTACK_ACCURACY","flat":8},{"type":"ADD_DAMAGE","flat":2}]}
+  ],
+  "rogue": [
+    {"type":"skill","id":"rogue_precision","name":"Precision Grip","description":"Improve accuracy for quick strikes.","tier":1,"triggers":[{"major":"ON_ATTACK","minor":"ATTACKER_USING_PHYSICAL"}],"effects":[{"type":"ADD_ATTACK_ACCURACY","flat":6}]},
+    {"type":"skill","id":"rogue_shadowstep","name":"Shadowstep","description":"Gain evasion.","tier":1,"effects":[{"type":"ADD_EVASION","flat":5}]},
+    {"type":"skill","id":"rogue_opening","name":"Opening Cut","description":"Gain damage on successful hits.","tier":2,"triggers":[{"major":"ON_DEAL_DAMAGE","minor":"ATTACKER_USING_PHYSICAL"}],"effects":[{"type":"ADD_DAMAGE","flat":1}]},
+    {"type":"skill","id":"rogue_lightpack","name":"Light Pack","description":"Reduce burden.","tier":2,"effects":[{"type":"REDUCE_WEIGHT","flat":1}]},
+    {"type":"ability","id":"rogue_signature","ability_id":"achiles_bane","name":"Achiles Bane","description":"Rogue signature precision strike.","tier":3},
+    {"type":"skill","id":"rogue_lurk","name":"Lurk","description":"Improve reliability for attacks.","tier":3,"triggers":[{"major":"ON_ATTACK"}],"effects":[{"type":"ADD_RELIABILITY","flat":10}]},
+    {"type":"skill","id":"rogue_gapfind","name":"Gap Finder","description":"Gain a little attack range.","tier":4,"triggers":[{"major":"ON_ATTACK"}],"effects":[{"type":"ADD_RANGE","flat":1}]},
+    {"type":"skill","id":"rogue_vaulting","name":"Vaulting","description":"Ignore the extra movement cost from barricades.","tier":4,"keywords":["Vault"],"effects":[]},
+    {"type":"skill","id":"rogue_mastery","name":"Nightblade","description":"Capstone rogue bonuses.","tier":5,"effects":[{"type":"ADD_ATTACK_ACCURACY","flat":6},{"type":"ADD_DAMAGE","flat":1},{"type":"ADD_EVASION","flat":5}]}
+  ],
+  "ranger": [
+    {"type":"skill","id":"ranger_line_of_fire","name":"Line of Fire","description":"Improve ranged accuracy.","tier":1,"triggers":[{"major":"ON_ATTACK","minor":"ATTACKER_USING_RANGED"}],"effects":[{"type":"ADD_ATTACK_ACCURACY","flat":5}]},
+    {"type":"skill","id":"ranger_trackstep","name":"Trackstep","description":"Gain evasion while mobile.","tier":1,"effects":[{"type":"ADD_EVASION","flat":5}]},
+    {"type":"skill","id":"ranger_long_sight","name":"Long Sight","description":"Increase attack range.","tier":2,"triggers":[{"major":"ON_ATTACK","minor":"ATTACKER_USING_RANGED"}],"effects":[{"type":"ADD_RANGE","flat":1}]},
+    {"type":"skill","id":"ranger_fletching","name":"Fletching Discipline","description":"Improve ranged reliability.","tier":2,"triggers":[{"major":"ON_ATTACK","minor":"ATTACKER_USING_RANGED"}],"effects":[{"type":"ADD_RELIABILITY","flat":10}]},
+    {"type":"ability","id":"ranger_signature","ability_id":"peek_shot","name":"Peek Shot","description":"Ranger signature attack.","tier":3},
+    {"type":"skill","id":"ranger_cover","name":"Natural Cover","description":"Reduce incoming damage while lightly armored.","tier":3,"triggers":[{"major":"ON_TAKE_DAMAGE","minor":"SELF_WEARING_LIGHT_ARMOR"}],"effects":[{"type":"REDUCE_INCOMING_DAMAGE","flat":1}]},
+    {"type":"skill","id":"ranger_pressure","name":"Pressure Fire","description":"Gain damage when ranged attacks land.","tier":4,"triggers":[{"major":"ON_DEAL_DAMAGE","minor":"ATTACKER_USING_RANGED"}],"effects":[{"type":"ADD_DAMAGE","flat":1}]},
+    {"type":"skill","id":"ranger_rations","name":"Rations and Rope","description":"Carry kit more efficiently.","tier":4,"effects":[{"type":"REDUCE_WEIGHT","flat":1}]},
+    {"type":"skill","id":"ranger_mastery","name":"Trailblazer","description":"Capstone ranger bonuses.","tier":5,"effects":[{"type":"ADD_ATTACK_ACCURACY","flat":6},{"type":"ADD_RANGE","flat":1},{"type":"ADD_EVASION","flat":5}]}
+  ],
+  "marksman": [
+    {"type":"skill","id":"marksman_rangecard","name":"Range Card","description":"Improve ranged accuracy.","tier":1,"triggers":[{"major":"ON_ATTACK","minor":"ATTACKER_USING_RANGED"}],"effects":[{"type":"ADD_ATTACK_ACCURACY","flat":6}]},
+    {"type":"skill","id":"marksman_zeroing","name":"Zeroing","description":"Improve ranged reliability.","tier":1,"triggers":[{"major":"ON_ATTACK","minor":"ATTACKER_USING_RANGED"}],"effects":[{"type":"ADD_RELIABILITY","flat":10}]},
+    {"type":"skill","id":"marksman_lanes","name":"Lane Control","description":"Gain attack range.","tier":2,"triggers":[{"major":"ON_ATTACK","minor":"ATTACKER_USING_RANGED"}],"effects":[{"type":"ADD_RANGE","flat":1}]},
+    {"type":"skill","id":"marksman_pack","name":"Field Pack","description":"Reduce carried burden.","tier":2,"effects":[{"type":"REDUCE_WEIGHT","flat":1}]},
+    {"type":"ability","id":"marksman_signature","ability_id":"hip_shot","name":"Hip Shot","description":"Fast ranged signature strike.","tier":3},
+    {"type":"skill","id":"marksman_spotter","name":"Spotter's Calm","description":"Gain evasion through spacing.","tier":3,"effects":[{"type":"ADD_EVASION","flat":5}]},
+    {"type":"skill","id":"marksman_critical_lanes","name":"Critical Lanes","description":"Further ranged precision.","tier":4,"triggers":[{"major":"ON_ATTACK","minor":"ATTACKER_USING_RANGED"}],"effects":[{"type":"ADD_ATTACK_ACCURACY","flat":6}]},
+    {"type":"skill","id":"marksman_horizon","name":"Horizon Read","description":"Further range control.","tier":4,"triggers":[{"major":"ON_ATTACK","minor":"ATTACKER_USING_RANGED"}],"effects":[{"type":"ADD_RANGE","flat":1}]},
+    {"type":"skill","id":"marksman_mastery","name":"Deadeye Doctrine","description":"Capstone marksman bonuses.","tier":5,"triggers":[{"major":"ON_ATTACK","minor":"ATTACKER_USING_RANGED"}],"effects":[{"type":"ADD_ATTACK_ACCURACY","flat":8},{"type":"ADD_RELIABILITY","flat":15}]}
+  ],
+  "mage": [
+    {"type":"skill","id":"mage_focus","name":"Arc Focus","description":"Improve magical accuracy.","tier":1,"triggers":[{"major":"ON_ATTACK","minor":"ATTACKER_USING_MAGICAL"}],"effects":[{"type":"ADD_ATTACK_ACCURACY","flat":6}]},
+    {"type":"skill","id":"mage_well","name":"Mana Well","description":"Improve magical reliability.","tier":1,"triggers":[{"major":"ON_ATTACK","minor":"ATTACKER_USING_MAGICAL"}],"effects":[{"type":"ADD_RELIABILITY","flat":10}]},
+    {"type":"skill","id":"mage_projection","name":"Projection","description":"Increase magical range.","tier":2,"triggers":[{"major":"ON_ATTACK","minor":"ATTACKER_USING_MAGICAL"}],"effects":[{"type":"ADD_RANGE","flat":1}]},
+    {"type":"skill","id":"mage_travel_light","name":"Travel Light","description":"Reduce burden from kit.","tier":2,"effects":[{"type":"REDUCE_WEIGHT","flat":1}]},
+    {"type":"ability","id":"mage_signature","ability_id":"drain_life","name":"Drain Life","description":"Mage signature spell.","tier":3},
+    {"type":"skill","id":"mage_warding","name":"Arc Warding","description":"Reduce incoming damage in light armor.","tier":3,"triggers":[{"major":"ON_TAKE_DAMAGE","minor":"SELF_WEARING_LIGHT_ARMOR"}],"effects":[{"type":"REDUCE_INCOMING_DAMAGE","flat":1}]},
+    {"type":"skill","id":"mage_precision","name":"Threaded Formula","description":"Further magical precision.","tier":4,"triggers":[{"major":"ON_ATTACK","minor":"ATTACKER_USING_MAGICAL"}],"effects":[{"type":"ADD_ATTACK_ACCURACY","flat":6}]},
+    {"type":"skill","id":"mage_kinetics","name":"Kinetic Steps","description":"Gain movement from spell discipline.","tier":4,"effects":[{"type":"MODIFY_MOVEMENT","flat":1}]},
+    {"type":"skill","id":"mage_mastery","name":"Grand Arcanum","description":"Capstone mage bonuses.","tier":5,"triggers":[{"major":"ON_ATTACK","minor":"ATTACKER_USING_MAGICAL"}],"effects":[{"type":"ADD_RANGE","flat":1},{"type":"ADD_RELIABILITY","flat":15}]}
+  ],
+  "cleric": [
+    {"type":"ability","id":"cleric_regenerate","ability_id":"regenerate","name":"Regenerate","description":"Heal a large amount of health to an ally.","tier":3},
+    {"type":"skill","id":"cleric_vigil","name":"Vigil","description":"Reduce incoming damage.","tier":1,"triggers":[{"major":"ON_TAKE_DAMAGE"}],"effects":[{"type":"REDUCE_INCOMING_DAMAGE","flat":1}]},
+    {"type":"skill","id":"cleric_blessed_stride","name":"Blessed Stride","description":"Gain movement.","tier":2,"effects":[{"type":"MODIFY_MOVEMENT","flat":1}]},
+    {"type":"skill","id":"cleric_sure_hand","name":"Sure Hand","description":"Improve reliability.","tier":2,"triggers":[{"major":"ON_ATTACK"}],"effects":[{"type":"ADD_RELIABILITY","flat":10}]},
+    {"type":"ability","id":"cleric_signature","ability_id":"regenerate","name":"Regenerate","description":"Cleric signature ability.","tier":3},
+    {"type":"skill","id":"cleric_steadfast","name":"Steadfast","description":"Further improve defense.","tier":3,"triggers":[{"major":"ON_TAKE_DAMAGE"}],"effects":[{"type":"REDUCE_INCOMING_DAMAGE","flat":1}]},
+    {"type":"ability","id":"cleric_mend_segment","ability_id":"mend_segment","name":"Mend Segment","description":"Restore a broken segment so it can be healed again.","tier":3},
+    {"type":"skill","id":"cleric_rebuke","name":"Rebuke","description":"Gain damage when strikes land.","tier":4,"triggers":[{"major":"ON_DEAL_DAMAGE"}],"effects":[{"type":"ADD_DAMAGE","flat":1}]},
+    {"type":"skill","id":"cleric_litany","name":"Litany","description":"Further improve reliability.","tier":4,"triggers":[{"major":"ON_ATTACK"}],"effects":[{"type":"ADD_RELIABILITY","flat":10}]},
+    {"type":"skill","id":"cleric_mastery","name":"Sanctified Path","description":"Capstone cleric bonuses.","tier":5,"effects":[{"type":"ADD_ATTACK_ACCURACY","flat":6},{"type":"REDUCE_INCOMING_DAMAGE","flat":1},{"type":"ADD_RELIABILITY","flat":10}]}
+  ]
+}

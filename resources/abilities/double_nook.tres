@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="AbilityData" load_steps=6 format=3 uid="uid://dtyq3v1shxocc"]
+
+[ext_resource type="Script" uid="uid://ctvqlo81wiqqu" path="res://scripts/data/AbilityData.gd" id="1"]
+[ext_resource type="Script" uid="uid://cmf11033gjufm" path="res://scripts/data/AbilityAction.gd" id="2"]
+[ext_resource type="Script" uid="uid://dkvt8u801o2rj" path="res://scripts/data/AbilityCondition.gd" id="3"]
+
+[sub_resource type="Resource" id="action_attack_1"]
+script = ExtResource("2")
+accuracy_modifier_percent = -15.0
+
+[sub_resource type="Resource" id="action_attack_2"]
+script = ExtResource("2")
+accuracy_modifier_percent = -15.0
+
+[resource]
+script = ExtResource("1")
+actions = Array[ExtResource("2")]([SubResource("action_attack_1"), SubResource("action_attack_2")])
+cooldown_turns = 2
+weapon_requirements = Array[String](["bow"])
+entry_id = "double_nook"
+entry_name = "Double Nook"
+description = "Stuff two arrows into a single shot, but at the cost of accuracy."

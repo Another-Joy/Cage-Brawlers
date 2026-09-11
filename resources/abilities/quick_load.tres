@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/AbilityData.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/data/AbilityAction.gd" id="2"]
+
+[sub_resource type="Resource" id="action_reload"]
+script = ExtResource("2")
+action_type = 8
+target_type = 0
+
+[resource]
+script = ExtResource("1")
+entry_id = "quick_load"
+entry_name = "Quick Load"
+description = "Reload your equipped magazine weapon during the Ending phase."
+phases = 4
+weapon_requirements = Array[String](["crossbow", "rifle"])
+targeting_mode = 0
+actions = [SubResource("action_reload")]

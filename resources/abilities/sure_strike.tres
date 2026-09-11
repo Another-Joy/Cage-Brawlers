@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/AbilityData.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/data/AbilityAction.gd" id="2"]
+
+[sub_resource type="Resource" id="action_attack"]
+script = ExtResource("2")
+action_type = 0
+target_type = 2
+force_hit = true
+cannot_crit = true
+
+[resource]
+script = ExtResource("1")
+entry_id = "sure_strike"
+entry_name = "Sure Strike"
+description = "Make an attack that cannot miss, but also cannot critically hit."
+phases = 2
+targeting_mode = 1
+actions = [SubResource("action_attack")]

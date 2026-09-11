@@ -115,18 +115,19 @@ func resolve_attack(
 		target: CharacterData,
 		weapon: WeaponData,
 		skill_or_ability: SkillTreeEntry = null,
-		action: AbilityAction = null) -> AttackResult:
+		action: AbilityAction = null,
+		is_surprise_attack: bool = false) -> AttackResult:
 
 	var result: AttackResult = AttackResult.new()
 	result.weapon_name = weapon.item_name
 
 	match weapon.damage_type:
 		WeaponData.DamageType.PHYSICAL:
-			return _resolve_physical(attacker, target, weapon, skill_or_ability, action, result)
+			return _resolve_physical(attacker, target, weapon, skill_or_ability, action, result, is_surprise_attack)
 		WeaponData.DamageType.RANGED:
-			return _resolve_ranged(attacker, target, weapon, skill_or_ability, action, result)
+			return _resolve_ranged(attacker, target, weapon, skill_or_ability, action, result, is_surprise_attack)
 		WeaponData.DamageType.MAGICAL:
-			return _resolve_magical(attacker, target, weapon, skill_or_ability, action, result)
+			return _resolve_magical(attacker, target, weapon, skill_or_ability, action, result, is_surprise_attack)
 
 	result.rejection_reason = "Unknown damage type."
 	return result
@@ -141,7 +142,8 @@ func _resolve_physical(
 		weapon: WeaponData,
 		skill_or_ability: SkillTreeEntry,
 		action: AbilityAction,
-		result: AttackResult) -> AttackResult:
+		result: AttackResult,
+		is_surprise_attack: bool) -> AttackResult:
 
 	# Height equity check: attacker and target must be on the same floor.
 	if attacker.grid_position.z != target.grid_position.z:
@@ -151,9 +153,12 @@ func _resolve_physical(
 	# Range check: Manhattan distance must not exceed the weapon's attack range,
 	# adjusted by any ability range modifier.
 	var effective_range: int = weapon.attack_range
+	var is_ability_attack: bool = skill_or_ability is AbilityData
+	var is_main_hand_attack: bool = attacker != null and weapon == attacker.main_hand_slot
+	var is_off_hand_attack: bool = attacker != null and weapon == attacker.off_hand_slot
 	if skill_or_ability is AbilityData:
 		effective_range += (skill_or_ability as AbilityData).range_modifier
-	effective_range += _get_passive_range_bonus(attacker, target, weapon)
+	effective_range += _get_passive_range_bonus(attacker, target, weapon, is_ability_attack, is_main_hand_attack, is_off_hand_attack)
 	var dist: int = abs(attacker.grid_position.x - target.grid_position.x) + abs(attacker.grid_position.y - target.grid_position.y)
 	if dist > effective_range:
 		result.rejection_reason = "Target out of melee range (%d > %d)." % [dist, effective_range]
@@ -167,7 +172,7 @@ func _resolve_physical(
 	# Barricades do NOT block melee (they are physically bypassed).
 
 	result.valid = true
-	_roll_accuracy_and_damage(attacker, target, weapon, 0, skill_or_ability, action, result)
+	_roll_accuracy_and_damage(attacker, target, weapon, 0, skill_or_ability, action, result, is_surprise_attack)
 	return result
 
 # ---------------------------------------------------------------------------
@@ -180,13 +185,14 @@ func _resolve_ranged(
 		weapon: WeaponData,
 		skill_or_ability: SkillTreeEntry,
 		action: AbilityAction,
-		result: AttackResult) -> AttackResult:
+		result: AttackResult,
+		is_surprise_attack: bool) -> AttackResult:
 
 	# Check ammo availability.
 	if weapon.requires_ammo():
-		var consumed: bool = _consume_ammo(attacker, weapon.ammo_type)
+		var consumed: bool = _consume_ammo(attacker, weapon)
 		if not consumed:
-			result.rejection_reason = "No ammo: %s" % (WeaponData.AmmoType.keys()[weapon.ammo_type] if weapon.ammo_type < WeaponData.AmmoType.size() else "UNKNOWN")
+			result.rejection_reason = "No ammo loaded: %s" % weapon.item_name if weapon.has_magazine() else "No ammo: %s" % (WeaponData.AmmoType.keys()[weapon.ammo_type] if weapon.ammo_type < WeaponData.AmmoType.size() else "UNKNOWN")
 			return result
 		result.ammo_consumed = true
 
@@ -197,9 +203,12 @@ func _resolve_ranged(
 	# Range check: Manhattan distance must not exceed the weapon's attack range,
 	# adjusted by any ability range modifier.
 	var effective_range: int = weapon.attack_range
+	var is_ability_attack: bool = skill_or_ability is AbilityData
+	var is_main_hand_attack: bool = attacker != null and weapon == attacker.main_hand_slot
+	var is_off_hand_attack: bool = attacker != null and weapon == attacker.off_hand_slot
 	if skill_or_ability is AbilityData:
 		effective_range += (skill_or_ability as AbilityData).range_modifier
-	effective_range += _get_passive_range_bonus(attacker, target, weapon)
+	effective_range += _get_passive_range_bonus(attacker, target, weapon, is_ability_attack, is_main_hand_attack, is_off_hand_attack)
 	var dist: int = abs(attacker.grid_position.x - target.grid_position.x) + abs(attacker.grid_position.y - target.grid_position.y)
 	if dist > effective_range:
 		result.rejection_reason = "Target out of ranged range (%d > %d)." % [dist, effective_range]
@@ -217,7 +226,7 @@ func _resolve_ranged(
 		result.cover_penalty_applied = true
 
 	result.valid = true
-	_roll_accuracy_and_damage(attacker, target, weapon, accuracy_modifier, skill_or_ability, action, result)
+	_roll_accuracy_and_damage(attacker, target, weapon, accuracy_modifier, skill_or_ability, action, result, is_surprise_attack)
 	return result
 
 # ---------------------------------------------------------------------------
@@ -230,7 +239,8 @@ func _resolve_magical(
 		weapon: WeaponData,
 		skill_or_ability: SkillTreeEntry,
 		action: AbilityAction,
-		result: AttackResult) -> AttackResult:
+		result: AttackResult,
+		is_surprise_attack: bool) -> AttackResult:
 
 	# Force stand-up if the attacker is crouched.
 	if attacker.is_crouched:
@@ -239,9 +249,12 @@ func _resolve_magical(
 	# Range check: Manhattan distance must not exceed the weapon's attack range,
 	# adjusted by any ability range modifier.
 	var effective_range: int = weapon.attack_range
+	var is_ability_attack: bool = skill_or_ability is AbilityData
+	var is_main_hand_attack: bool = attacker != null and weapon == attacker.main_hand_slot
+	var is_off_hand_attack: bool = attacker != null and weapon == attacker.off_hand_slot
 	if skill_or_ability is AbilityData:
 		effective_range += (skill_or_ability as AbilityData).range_modifier
-	effective_range += _get_passive_range_bonus(attacker, target, weapon)
+	effective_range += _get_passive_range_bonus(attacker, target, weapon, is_ability_attack, is_main_hand_attack, is_off_hand_attack)
 	var dist: int = abs(attacker.grid_position.x - target.grid_position.x) + abs(attacker.grid_position.y - target.grid_position.y)
 	if dist > effective_range:
 		result.rejection_reason = "Target out of magical range (%d > %d)." % [dist, effective_range]
@@ -261,11 +274,11 @@ func _resolve_magical(
 			accuracy_modifier += COVER_ACCURACY_PENALTY
 			result.cover_penalty_applied = true
 		result.valid = true
-		_roll_accuracy_and_damage(attacker, target, weapon, accuracy_modifier, skill_or_ability, action, result)
+		_roll_accuracy_and_damage(attacker, target, weapon, accuracy_modifier, skill_or_ability, action, result, is_surprise_attack)
 	else:
 		# Default magic: unconditional targeting within range; no LoS required.
 		result.valid = true
-		_roll_accuracy_and_damage(attacker, target, weapon, 0, skill_or_ability, action, result)
+		_roll_accuracy_and_damage(attacker, target, weapon, 0, skill_or_ability, action, result, is_surprise_attack)
 
 	return result
 
@@ -303,7 +316,8 @@ func _roll_accuracy_and_damage(
 		base_accuracy_modifier: int,
 		skill_or_ability: SkillTreeEntry,
 		action: AbilityAction,
-		result: AttackResult) -> void:
+		result: AttackResult,
+		is_surprise_attack: bool = false) -> void:
 
 	# ── Collect ability-level modifiers ──────────────────────────────────────
 	var ability_acc_modifier: int = 0
@@ -321,19 +335,30 @@ func _roll_accuracy_and_damage(
 	# ── Build SkillContext for passive skill evaluation ───────────────────────
 	# For trigger matching: build a context with ON_ATTACK first (for accuracy
 	# skills), then we switch to ON_DEAL_DAMAGE for damage skill dice.
+	var is_ability_attack: bool = skill_or_ability is AbilityData
+	var is_main_hand_attack: bool = attacker != null and weapon == attacker.main_hand_slot
+	var is_off_hand_attack: bool = attacker != null and weapon == attacker.off_hand_slot
 	var attack_ctx: SkillProcessor.SkillContext = SkillProcessor.SkillContext.new(
 		attacker,
 		SkillCondition.MajorCondition.ON_ATTACK,
 		attacker,
 		target,
-		weapon)
+		weapon,
+		is_ability_attack,
+		is_surprise_attack,
+		is_main_hand_attack,
+		is_off_hand_attack)
 
 	var deal_ctx: SkillProcessor.SkillContext = SkillProcessor.SkillContext.new(
 		attacker,
 		SkillCondition.MajorCondition.ON_DEAL_DAMAGE,
 		attacker,
 		target,
-		weapon)
+		weapon,
+		is_ability_attack,
+		is_surprise_attack,
+		is_main_hand_attack,
+		is_off_hand_attack)
 
 	# ── Accuracy formula ─────────────────────────────────────────────────────
 	var accuracy_stat_bonus: int = _get_accuracy_bonus(attacker, weapon) * 5
@@ -357,16 +382,20 @@ func _roll_accuracy_and_damage(
 	result.acc_evasion = target_evasion
 
 	# ── Hit / crit determination (d100) ──────────────────────────────────────
+	var force_hit: bool = action != null and action.force_hit
+	var cannot_crit: bool = action != null and action.cannot_crit
 	var roll: int = _dice_roller.roll_d100()
 	result.roll_d100 = roll
-	result.hit = roll <= mini(100, maxi(0, final_accuracy))
-	if final_accuracy > 100:
+	result.hit = force_hit or roll <= mini(100, maxi(0, final_accuracy))
+	if final_accuracy > 100 and not cannot_crit and not force_hit:
 		result.crit = roll <= (final_accuracy - 100)
+	if cannot_crit:
+		result.crit = false
 
 	# ── Damage (only on hit) ──────────────────────────────────────────────────
 	if result.hit:
 		# General reliability factor shared by all bundled dice in this attack.
-		var skill_reliability_bonus: float = _get_passive_reliability_bonus(attacker, target, weapon)
+		var skill_reliability_bonus: float = _get_passive_reliability_bonus(attacker, target, weapon, is_ability_attack, is_main_hand_attack, is_off_hand_attack)
 		var general_reliability: float = weapon.base_reliability + ability_reliability_bonus + _get_reliability_bonus(attacker, weapon) + skill_reliability_bonus
 
 		# Build the dice bundle.
@@ -397,7 +426,7 @@ func _roll_accuracy_and_damage(
 		var total_roll: float = 0.0
 		result.dice_roll_details.clear()
 
-		var weapon_eff_rel: float = clampf(general_reliability + weapon_dv.reliability, 0.0, 1.0)
+		var weapon_eff_rel: float = general_reliability + weapon_dv.reliability
 		var weapon_roll: float = float(_dice_roller.roll_dice(weapon_dv.count, weapon_dv.sides,
 				weapon_eff_rel > 0.0, weapon_eff_rel))
 		total_roll += weapon_roll
@@ -412,7 +441,7 @@ func _roll_accuracy_and_damage(
 		var bonus_dice_roll: float = 0.0
 		for se in skill_dice_effects:
 			var dv: DiceValue = (se as SkillEffect).dice
-			var eff_rel: float = clampf(general_reliability + dv.reliability, 0.0, 1.0)
+			var eff_rel: float = general_reliability + dv.reliability
 			var r: float = float(_dice_roller.roll_dice(dv.count, dv.sides, eff_rel > 0.0, eff_rel))
 			bonus_dice_roll += r
 			total_roll += r
@@ -425,7 +454,7 @@ func _roll_accuracy_and_damage(
 			})
 
 		if action_dv != null:
-			var eff_rel: float = clampf(general_reliability + action_dv.reliability, 0.0, 1.0)
+			var eff_rel: float = general_reliability + action_dv.reliability
 			var r: float = float(_dice_roller.roll_dice(action_dv.count, action_dv.sides,
 					eff_rel > 0.0, eff_rel))
 			bonus_dice_roll += r
@@ -455,7 +484,7 @@ func _roll_accuracy_and_damage(
 		result.dmg_raw_roll = total_roll
 		result.dmg_stat_bonus = damage_stat_bonus
 		result.dmg_bonus_dice = bonus_dice_roll
-		result.reliability = clampf(general_reliability, 0.0, 1.0)
+		result.reliability = general_reliability
 
 		result.damage_dealt = raw_damage
 
@@ -502,22 +531,30 @@ func _get_reliability_bonus(attacker: CharacterData, weapon: WeaponData) -> floa
 			return 0.0
 	return 0.0
 
-func _get_passive_reliability_bonus(attacker: CharacterData, target: CharacterData, weapon: WeaponData) -> float:
+func _get_passive_reliability_bonus(attacker: CharacterData, target: CharacterData, weapon: WeaponData, is_ability_attack: bool = false, is_main_hand_attack: bool = false, is_off_hand_attack: bool = false) -> float:
 	var ctx: SkillProcessor.SkillContext = SkillProcessor.SkillContext.new(
 		attacker,
 		SkillCondition.MajorCondition.ON_ATTACK,
 		attacker,
 		target,
-		weapon)
+		weapon,
+		is_ability_attack,
+		false,
+		is_main_hand_attack,
+		is_off_hand_attack)
 	return SkillProcessor.get_reliability_bonus(ctx) / 100.0
 
-func _get_passive_range_bonus(attacker: CharacterData, target: CharacterData, weapon: WeaponData) -> int:
+func _get_passive_range_bonus(attacker: CharacterData, target: CharacterData, weapon: WeaponData, is_ability_attack: bool = false, is_main_hand_attack: bool = false, is_off_hand_attack: bool = false) -> int:
 	var ctx: SkillProcessor.SkillContext = SkillProcessor.SkillContext.new(
 		attacker,
 		SkillCondition.MajorCondition.ON_ATTACK,
 		attacker,
 		target,
-		weapon)
+		weapon,
+		is_ability_attack,
+		false,
+		is_main_hand_attack,
+		is_off_hand_attack)
 	return SkillProcessor.get_range_bonus(ctx)
 
 # ---------------------------------------------------------------------------
@@ -526,24 +563,10 @@ func _get_passive_range_bonus(attacker: CharacterData, target: CharacterData, we
 
 ## Attempts to consume one unit of the required ammo type.
 ## Returns true on success, false if no ammo remains.
-func _consume_ammo(attacker: CharacterData, ammo_type: WeaponData.AmmoType) -> bool:
-	match ammo_type:
-		WeaponData.AmmoType.BULLETS:
-			if attacker.bullets_count <= 0:
-				return false
-			attacker.bullets_count -= 1
-			return true
-		WeaponData.AmmoType.BOLTS:
-			if attacker.bolts_count <= 0:
-				return false
-			attacker.bolts_count -= 1
-			return true
-		WeaponData.AmmoType.ARROWS:
-			if attacker.arrows_count <= 0:
-				return false
-			attacker.arrows_count -= 1
-			return true
-	return true  # AmmoType.NONE — no ammo required.
+func _consume_ammo(attacker: CharacterData, weapon: WeaponData) -> bool:
+	if weapon == null:
+		return false
+	return attacker.consume_weapon_ammo(weapon)
 
 # ---------------------------------------------------------------------------
 # Dual Wield Sequence
@@ -573,12 +596,7 @@ func resolve_dual_wield(
 
 	# Attack 2: Off Hand — check ammo before rolling.
 	if off_weapon.requires_ammo():
-		var ammo_available: bool = false
-		match off_weapon.ammo_type:
-			WeaponData.AmmoType.BULLETS: ammo_available = attacker.bullets_count > 0
-			WeaponData.AmmoType.BOLTS:   ammo_available = attacker.bolts_count > 0
-			WeaponData.AmmoType.ARROWS:  ammo_available = attacker.arrows_count > 0
-			_: ammo_available = true
+		var ammo_available: bool = attacker.can_fire_weapon(off_weapon)
 		if not ammo_available:
 			var no_ammo_result: AttackResult = AttackResult.new()
 			no_ammo_result.rejection_reason = "No Ammo: off-hand attack cancelled."

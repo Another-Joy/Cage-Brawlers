@@ -68,7 +68,7 @@ func compute_visible_tiles(
 			continue
 
 		var angle_to_tile: float = rad_to_deg(delta.normalized().angle_to(facing_vec))
-		if abs(angle_to_tile) > HALF_CONE_ANGLE_DEG:
+		if abs(angle_to_tile) >= HALF_CONE_ANGLE_DEG:
 			continue  # Outside the vision cone.
 
 		# --- Boundary Raytracing ---
@@ -98,7 +98,7 @@ func check_ranged_target(
 		target.grid_position.y - observer.grid_position.y)
 	if delta.length_squared() > 0.0:
 		var angle_to_target: float = rad_to_deg(delta.normalized().angle_to(facing_vec))
-		if abs(angle_to_target) > HALF_CONE_ANGLE_DEG:
+		if abs(angle_to_target) >= HALF_CONE_ANGLE_DEG:
 			return result  # Target is outside the attacker's vision cone.
 
 	var path_tiles: Array[Vector3i] = _get_line_tiles(observer.grid_position, target.grid_position)

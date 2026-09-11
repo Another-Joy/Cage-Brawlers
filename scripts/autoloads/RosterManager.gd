@@ -149,15 +149,20 @@ func add_char(char_dict: Dictionary) -> void:
 	save_roster()
 	roster_changed.emit()
 
-func create_new_char(character_name: String = "") -> int:
+func create_new_char(
+		character_name: String = "",
+		character_class: int = DEFAULT_NEW_CLASS,
+		class_data_path: String = DEFAULT_NEW_CLASS_PATH,
+		level: int = 1) -> int:
 	var next_index: int = roster.size() + 1
 	var id_suffix: String = str(Time.get_unix_time_from_system())
+	var safe_level: int = maxi(1, level)
 	var new_dict: Dictionary = {
 		"character_id": "custom_%s_%d" % [id_suffix, next_index],
 		"character_name": character_name if character_name != "" else "New Brawler %d" % next_index,
-		"character_class": DEFAULT_NEW_CLASS,
-		"class_data_path": DEFAULT_NEW_CLASS_PATH,
-		"level": 1,
+		"character_class": character_class,
+		"class_data_path": class_data_path,
+		"level": safe_level,
 		"experience": 0,
 		"strength": 10,
 		"dexterity": 10,
@@ -308,6 +313,9 @@ static func validate_equipment(
 	# Two-handed lockout: cannot equip anything in off-hand.
 	if weapon.is_two_handed() and off_hand_path != null and off_hand_path != "":
 		return "Cannot equip an off-hand item with a two-handed weapon."
+	# Dual-wield keyword lockout: this weapon already occupies both hands unless it is versatile.
+	if weapon.has_keyword("Dual-Wield") and not weapon.is_versatile() and off_hand_path != null and off_hand_path != "":
+		return "Cannot equip an off-hand item with a Dual-Wield main-hand weapon (except Versatile)."
 
 	if off_hand_path == null or off_hand_path == "":
 		return ""

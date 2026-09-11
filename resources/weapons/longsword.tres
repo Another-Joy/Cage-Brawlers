@@ -9,7 +9,7 @@ damage_dice_sides = 8
 item_id = "longsword"
 item_name = "Longsword"
 description = "A versatile blade that can be wielded one- or two-handed."
-weight = 2.0
+weight = 3.0
 keywords = Array[String](["Versatile"])
 keyword_params = {
 "Versatile": {

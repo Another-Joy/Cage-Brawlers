@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=3 format=3 uid="uid://cljyyednflin2"]
+
+[ext_resource type="Script" uid="uid://c34bt228rslqw" path="res://scripts/data/SkillTreeEntry.gd" id="1_2rccq"]
+[ext_resource type="Script" uid="uid://bb3tgc10tnlt3" path="res://scripts/data/WeaponData.gd" id="2_qcsp2"]
+
+[resource]
+script = ExtResource("2_qcsp2")
+item_id = "shortsword"
+item_name = "Shortsword"
+description = "A short blade to make quick work of opponents."
+weight = 2.0
+keywords = Array[String](["Finesse"])

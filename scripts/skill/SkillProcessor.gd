@@ -31,18 +31,34 @@ class SkillContext:
 	var weapon: WeaponData = null
 	## Which major event is currently happening.
 	var major_event: SkillCondition.MajorCondition = SkillCondition.MajorCondition.ALWAYS
+	## True when this attack was initiated by an active ability.
+	var is_ability_attack: bool = false
+	## True when this attack qualifies as a surprise attack.
+	var is_surprise_attack: bool = false
+	## True when the attacking weapon is the attacker's main-hand weapon.
+	var is_main_hand_attack: bool = false
+	## True when the attacking weapon is the attacker's off-hand weapon.
+	var is_off_hand_attack: bool = false
 
 	func _init(
 			p_owner: CharacterData,
 			p_major: SkillCondition.MajorCondition,
 			p_attacker: CharacterData = null,
 			p_target: CharacterData = null,
-			p_weapon: WeaponData = null) -> void:
+			p_weapon: WeaponData = null,
+			p_is_ability_attack: bool = false,
+			p_is_surprise_attack: bool = false,
+			p_is_main_hand_attack: bool = false,
+			p_is_off_hand_attack: bool = false) -> void:
 		owner    = p_owner
 		major_event = p_major
 		attacker = p_attacker
 		target   = p_target
 		weapon   = p_weapon
+		is_ability_attack = p_is_ability_attack
+		is_surprise_attack = p_is_surprise_attack
+		is_main_hand_attack = p_is_main_hand_attack
+		is_off_hand_attack = p_is_off_hand_attack
 
 # ---------------------------------------------------------------------------
 # Public Evaluation API
@@ -86,6 +102,10 @@ static func get_range_bonus(ctx: SkillContext, dice_roller: DiceRoller = null) -
 ## Returns the total burden reduction granted by passive skills.
 static func get_weight_reduction(ctx: SkillContext, dice_roller: DiceRoller = null) -> int:
 	return _sum_effects(ctx, SkillEffect.EffectType.REDUCE_WEIGHT, dice_roller)
+
+## Returns the number of additional attacks this hit should generate.
+static func get_extra_attack_count(ctx: SkillContext, dice_roller: DiceRoller = null) -> int:
+	return maxi(0, _sum_non_dice_effects(ctx, SkillEffect.EffectType.ADD_EXTRA_ATTACK, dice_roller))
 
 ## Collects all DICE-type ADD_DAMAGE SkillEffects from triggered passive skills.
 ## These are returned as an Array[SkillEffect] so the caller can roll each one
@@ -158,11 +178,14 @@ static func _skill_triggers(skill: SkillData, ctx: SkillContext) -> bool:
 	# No triggers means "always active".
 	if skill.triggers.is_empty():
 		return true
-
+	if skill.trigger_match_mode == SkillData.TriggerMatchMode.ALL:
+		for trigger in skill.triggers:
+			if not _condition_matches(trigger, ctx):
+				return false
+		return true
 	for trigger in skill.triggers:
 		if _condition_matches(trigger, ctx):
 			return true
-
 	return false
 
 ## Evaluates one SkillCondition pair (major + optional minor) against ctx.
@@ -208,10 +231,29 @@ static func _minor_matches(cond: SkillCondition, ctx: SkillContext) -> bool:
 		SkillCondition.MinorCondition.SELF_WEARING_LIGHT_ARMOR:
 			return _self_armor_type(ctx) == ArmorData.ArmorType.LIGHT
 		SkillCondition.MinorCondition.SELF_WEAPON_HAS_KEYWORD:
-			return ctx.weapon != null and ctx.weapon.has_keyword(cond.string_param)
+			var owner_weapon_for_keyword: WeaponData = _owner_weapon(ctx)
+			return owner_weapon_for_keyword != null and owner_weapon_for_keyword.has_keyword(cond.string_param)
 		SkillCondition.MinorCondition.SELF_WEAPON_TYPE_IS:
-			return ctx.weapon != null and ctx.weapon.get_weapon_type_name() == cond.string_param.to_lower()
+			var owner_weapon_for_type: WeaponData = _owner_weapon(ctx)
+			return owner_weapon_for_type != null and owner_weapon_for_type.get_weapon_type_name() == cond.string_param.to_lower()
+		SkillCondition.MinorCondition.ATTACK_IS_SURPRISE:
+			return ctx.is_surprise_attack
+		SkillCondition.MinorCondition.ATTACK_IS_ABILITY:
+			return ctx.is_ability_attack
+		SkillCondition.MinorCondition.ATTACKING_WEAPON_IS_MAIN_HAND:
+			return ctx.is_main_hand_attack
+		SkillCondition.MinorCondition.ATTACKING_WEAPON_IS_OFF_HAND:
+			return ctx.is_off_hand_attack
 	return false
+
+static func _owner_weapon(ctx: SkillContext) -> WeaponData:
+	if ctx.owner == null:
+		return null
+	if ctx.owner.main_hand_slot != null:
+		return ctx.owner.main_hand_slot
+	if ctx.owner.off_hand_slot is WeaponData:
+		return ctx.owner.off_hand_slot as WeaponData
+	return null
 
 ## Returns the ArmorType of the target's equipped armor, or LIGHT if none.
 static func _target_armor_type(ctx: SkillContext) -> ArmorData.ArmorType:

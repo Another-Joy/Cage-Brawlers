@@ -41,12 +41,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "Skills & Abilities/Skills/Armor Masteries.md",
+                "file": "Weapons/Melee/Weapons/Shortsword.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "Armor Masteries"
+              "title": "Shortsword"
             }
           }
         ],
@@ -214,6 +214,14 @@
   },
   "active": "158cc3f8b44fa511",
   "lastOpenFiles": [
+    "Weapons/Melee/Weapons/Longsword.md",
+    "Weapons/Melee/Weapons/Greatsword.md",
+    "Weapons/Melee/Weapons/Shortsword.md",
+    "Characters/Classes/Mage.md",
+    "Characters/Classes/Cleric.md",
+    "Characters/Classes/Brawler.md",
+    "Characters/Stats.md",
+    "Skills & Abilities/Skills/Armor Masteries.md",
     "Armor/Light Armors/Simple Gabardine.md",
     "Armor/Light Armors/Ranger's Robes.md",
     "Armor/Light Armors/Mage's Kefta.md",
@@ -224,7 +232,6 @@
     "Armor/Medium Armors/Hide.md",
     "Armor/Ideas/Light Armor.md",
     "Skills & Abilities/Skills/Armor Proficiencies.md",
-    "Skills & Abilities/Skills/Armor Masteries.md",
     "Armor/Heavy Armors/Chain Mail.md",
     "Armor/Heavy Armors/Full Plate.md",
     "Armor/Heavy Armors/Ring Mail.md",
@@ -233,13 +240,6 @@
     "Skills & Abilities/Abilities/Hip Shot.md",
     "Skills & Abilities/Abilities/Fire Artillery.md",
     "Skills & Abilities/Abilities/Achile's Bane.md",
-    "Skills & Abilities/Abilities/Beholder's Eye.md",
-    "Skills & Abilities/Abilities/Drain Life.md",
-    "Skills & Abilities/Abilities/Regenerate.md",
-    "Skills & Abilities/Abilities/Peek Shot.md",
-    "Keywords/Direct.md",
-    "Templates/Abilities.md",
-    "Skills & Abilities/Abilities/Riposte.md",
     "Keywords/Untitled",
     "Keywords",
     "Templates",

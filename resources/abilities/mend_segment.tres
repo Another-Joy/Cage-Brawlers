@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="AbilityData" load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/AbilityData.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/data/AbilityAction.gd" id="2"]
+
+[sub_resource type="Resource" id="action_mend"]
+script = ExtResource("2")
+action_type = 12
+target_type = 1
+
+[resource]
+script = ExtResource("1")
+entry_id = "mend_segment"
+entry_name = "Mend Segment"
+description = "Restore a broken health segment so it can be healed again."
+phases = 2
+weapon_requirements = Array[String](["ball", "tome"])
+actions = Array[ExtResource("2")]([SubResource("action_mend")])

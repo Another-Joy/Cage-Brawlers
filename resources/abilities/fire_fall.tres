@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/AbilityData.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/data/AbilityAction.gd" id="2"]
+
+[sub_resource type="Resource" id="firefall_action"]
+script = ExtResource("2")
+action_type = 9
+target_type = 0
+range_override = 4
+uses_weapon_dice = true
+area_radius = 2
+flat_bonus = 2
+
+[resource]
+script = ExtResource("1")
+entry_id = "fire_fall"
+entry_name = "Fire Fall"
+description = "Deal damage to all units within 2 tiles of the target point."
+phases = 2
+weapon_requirements = Array[String](["tome", "ball"])
+target_count = 1
+targeting_mode = 2
+actions = [SubResource("firefall_action")]

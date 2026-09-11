@@ -28,6 +28,7 @@ enum ConditionType {
 	                        ## across multiple types; this condition is AND with others.
 	NOT_MOVED_THIS_TURN,    ## Owner must not have used a Move action this turn.
 	                        ## Relevant for Aiming-keyword weapons and similar checks.
+	TARGET_IS_SURPRISE_ELIGIBLE, ## Declared target must currently qualify for a surprise attack.
 }
 
 # ---------------------------------------------------------------------------

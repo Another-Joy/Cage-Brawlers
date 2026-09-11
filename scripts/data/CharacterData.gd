@@ -26,6 +26,12 @@ enum CharacterClass {
 	BRAWLER,    ## Heavy tank class (Con primary, Str secondary).
 }
 
+enum SegmentState {
+	ACTIVE,
+	BROKEN,
+	LOST,
+}
+
 # ---------------------------------------------------------------------------
 # Identity
 # ---------------------------------------------------------------------------
@@ -113,6 +119,8 @@ var armor_max_hp: float = 0.0
 var segment_hp: Array[float] = []
 ## Which segments have been permanently disabled (KNOCKED_DOWN segments).
 var segment_disabled: Array[bool] = []
+## Per-segment state: ACTIVE, BROKEN, or LOST.
+var segment_state: Array[int] = []
 ## The original class-specific percentage split used at initialisation.
 ## Stored so that full_heal() and get_current_max_hp() can restore correctly.
 var _segment_percentages: Array[float] = []
@@ -124,6 +132,15 @@ var ability_cooldowns: Dictionary = {}
 ## Ticked down at the start of each of this character's turns by CombatManager.
 ## Not exported — reset on each match load via duplicate(false).
 var active_buffs: Dictionary = {}
+## Enemy character ids that could see this character at the start of their turn.
+## Used to determine whether later attacks qualify as surprise attacks.
+var visible_to_enemy_ids_at_turn_start: Dictionary = {}
+## Loaded rounds/charges for magazine weapons by slot key ("main" / "off").
+var loaded_magazine: Dictionary = {}
+## Runtime ownership marker for summoned observer units.
+var summoned_owner_player_id: String = ""
+## Marks a non-turn-taking summoned watcher unit.
+var is_summoned_watcher_eye: bool = false
 
 # ---------------------------------------------------------------------------
 # Constants (override per class via ClassDefinitions utility)
@@ -141,6 +158,96 @@ const CARRY_WEIGHT_PER_STR: float = 1.0
 ## Returns the DnD-style stat bonus: (stat_value - 10) / 2 (integer division, can be negative).
 func stat_bonus(stat_value: int) -> int:
 	return (stat_value - 10) / 2
+
+func initialise_loaded_magazines() -> void:
+	loaded_magazine.clear()
+	if main_hand_slot != null and main_hand_slot.has_magazine():
+		loaded_magazine["main"] = main_hand_slot.get_magazine_capacity()
+	if off_hand_slot is WeaponData:
+		var off_weapon: WeaponData = off_hand_slot as WeaponData
+		if off_weapon.has_magazine():
+			loaded_magazine["off"] = off_weapon.get_magazine_capacity()
+
+func get_weapon_loaded_ammo(weapon: WeaponData) -> int:
+	var slot_key: String = _get_weapon_slot_key(weapon)
+	return int(loaded_magazine.get(slot_key, 0))
+
+func get_weapon_magazine_capacity(weapon: WeaponData) -> int:
+	if weapon == null or not weapon.has_magazine():
+		return 0
+	return weapon.get_magazine_capacity()
+
+func can_fire_weapon(weapon: WeaponData) -> bool:
+	if weapon == null:
+		return false
+	if weapon.has_magazine():
+		return get_weapon_loaded_ammo(weapon) > 0
+	if not weapon.requires_ammo():
+		return true
+	return _get_reserve_ammo_for_type(weapon.ammo_type) > 0
+
+func consume_weapon_ammo(weapon: WeaponData) -> bool:
+	if weapon == null:
+		return false
+	if weapon.has_magazine():
+		var slot_key: String = _get_weapon_slot_key(weapon)
+		var loaded: int = int(loaded_magazine.get(slot_key, 0))
+		if loaded <= 0:
+			return false
+		loaded_magazine[slot_key] = loaded - 1
+		return true
+	if not weapon.requires_ammo():
+		return true
+	return _consume_reserve_ammo(weapon.ammo_type)
+
+func reload_weapon(weapon: WeaponData) -> int:
+	if weapon == null or not weapon.has_magazine():
+		return 0
+	var slot_key: String = _get_weapon_slot_key(weapon)
+	var capacity: int = weapon.get_magazine_capacity()
+	var loaded: int = int(loaded_magazine.get(slot_key, 0))
+	var needed: int = maxi(0, capacity - loaded)
+	if needed <= 0:
+		return 0
+	var reserve: int = _get_reserve_ammo_for_type(weapon.ammo_type)
+	var to_load: int = mini(needed, reserve)
+	if to_load <= 0:
+		return 0
+	loaded_magazine[slot_key] = loaded + to_load
+	_consume_reserve_ammo_count(weapon.ammo_type, to_load)
+	return to_load
+
+func _get_weapon_slot_key(weapon: WeaponData) -> String:
+	if weapon == main_hand_slot:
+		return "main"
+	if off_hand_slot == weapon:
+		return "off"
+	return "main"
+
+func _get_reserve_ammo_for_type(ammo_type: WeaponData.AmmoType) -> int:
+	match ammo_type:
+		WeaponData.AmmoType.BULLETS:
+			return bullets_count
+		WeaponData.AmmoType.BOLTS:
+			return bolts_count
+		WeaponData.AmmoType.ARROWS:
+			return arrows_count
+	return 0
+
+func _consume_reserve_ammo(ammo_type: WeaponData.AmmoType) -> bool:
+	if _get_reserve_ammo_for_type(ammo_type) <= 0:
+		return false
+	_consume_reserve_ammo_count(ammo_type, 1)
+	return true
+
+func _consume_reserve_ammo_count(ammo_type: WeaponData.AmmoType, count: int) -> void:
+	match ammo_type:
+		WeaponData.AmmoType.BULLETS:
+			bullets_count = maxi(0, bullets_count - count)
+		WeaponData.AmmoType.BOLTS:
+			bolts_count = maxi(0, bolts_count - count)
+		WeaponData.AmmoType.ARROWS:
+			arrows_count = maxi(0, arrows_count - count)
 
 ## Returns the character's maximum health pool.
 ## When class_data is set, uses level-based hit dice:
@@ -248,17 +355,19 @@ func initialise_health_segments(segment_percentages: Array[float]) -> void:
 	var max_hp: float = get_max_hp()
 	segment_hp.clear()
 	segment_disabled.clear()
+	segment_state.clear()
 
 	segment_hp.append(ceil(max_hp * segment_percentages[0]))
 	segment_hp.append(ceil(max_hp * segment_percentages[1]))
 	segment_hp.append(max_hp - segment_hp[0] - segment_hp[1])  # Ensure total HP matches max_hp, avoiding rounding issues.
 	segment_disabled = [false, false, false]
+	segment_state = [SegmentState.ACTIVE, SegmentState.ACTIVE, SegmentState.ACTIVE]
 
 ## Returns the current total HP across all active (non-disabled) segments.
 func get_current_hp() -> float:
 	var total: float = 0.0
 	for i in segment_hp.size():
-		if not segment_disabled[i]:
+		if i < segment_state.size() and segment_state[i] == SegmentState.ACTIVE:
 			total += segment_hp[i]
 	return total
 
@@ -269,7 +378,7 @@ func get_current_max_hp() -> float:
 	var max_hp: float = get_max_hp()
 	var total: float = 0.0
 	for i in _segment_percentages.size():
-		if i < segment_disabled.size() and not segment_disabled[i]:
+		if i < segment_state.size() and segment_state[i] == SegmentState.ACTIVE:
 			total += max_hp * _segment_percentages[i]
 	return total
 
@@ -283,7 +392,7 @@ func apply_damage(damage: float) -> bool:
 		var heal: float = -damage
 		var max_hp: float = get_max_hp()
 		for i in range(segment_hp.size() - 1, -1, -1):
-			if segment_disabled[i]:
+			if i < segment_state.size() and segment_state[i] != SegmentState.ACTIVE:
 				continue
 			var seg_max: float
 			if i < _segment_percentages.size():
@@ -312,7 +421,7 @@ func apply_damage(damage: float) -> bool:
 
 	# Apply remaining damage to HP segments (index 0 first).
 	for i in segment_hp.size():
-		if segment_disabled[i]:
+		if i < segment_state.size() and segment_state[i] != SegmentState.ACTIVE:
 			continue
 		if remaining_damage <= 0.0:
 			break
@@ -328,27 +437,47 @@ func apply_damage(damage: float) -> bool:
 		return _trigger_knockdown()
 	return false
 
+func apply_direct_hp_damage(damage: float) -> bool:
+	if damage <= 0.0:
+		return apply_damage(damage)
+	var remaining_damage: float = damage
+	for i in segment_hp.size():
+		if i < segment_state.size() and segment_state[i] != SegmentState.ACTIVE:
+			continue
+		if remaining_damage <= 0.0:
+			break
+		if remaining_damage >= segment_hp[i]:
+			remaining_damage -= segment_hp[i]
+			segment_hp[i] = 0.0
+		else:
+			segment_hp[i] -= remaining_damage
+			remaining_damage = 0.0
+	if get_current_hp() <= 0.0:
+		return _trigger_knockdown()
+	return false
+
 ## Handles knockdown logic. Returns true if the character is now knocked down.
 func _trigger_knockdown() -> bool:
-	# Disable the rightmost non-disabled segment.
-	var rightmost_active: int = -1
+	# Lose the rightmost non-lost segment, whether it is active or broken.
+	var rightmost_recoverable: int = -1
 	for i in range(segment_hp.size() - 1, -1, -1):
-		if not segment_disabled[i]:
-			rightmost_active = i
+		if i < segment_state.size() and segment_state[i] != SegmentState.LOST:
+			rightmost_recoverable = i
 			break
 
-	if rightmost_active == -1:
+	if rightmost_recoverable == -1:
 		# All segments already disabled — permanent death.
 		state_flag = StateFlag.DEAD
 		return true
 
-	segment_disabled[rightmost_active] = true
-	segment_hp[rightmost_active] = 0.0
+	segment_state[rightmost_recoverable] = SegmentState.LOST
+	segment_disabled[rightmost_recoverable] = true
+	segment_hp[rightmost_recoverable] = 0.0
 
 	# Check if all segments are now disabled -> permanent death.
 	var all_disabled: bool = true
-	for disabled in segment_disabled:
-		if not disabled:
+	for state in segment_state:
+		if state != SegmentState.LOST:
 			all_disabled = false
 			break
 
@@ -359,6 +488,35 @@ func _trigger_knockdown() -> bool:
 
 	return true
 
+func has_empty_segment() -> bool:
+	for value in segment_hp:
+		if value <= 0.0:
+			return true
+	return false
+
+func has_broken_segment() -> bool:
+	for state in segment_state:
+		if state == SegmentState.BROKEN:
+			return true
+	return false
+
+func break_next_segment() -> bool:
+	for i in segment_hp.size():
+		if i < segment_state.size() and segment_state[i] == SegmentState.ACTIVE:
+			segment_state[i] = SegmentState.BROKEN
+			segment_hp[i] = 0.0
+			return true
+	return false
+
+func mend_broken_segment() -> bool:
+	for i in range(segment_hp.size() - 1, -1, -1):
+		if i < segment_state.size() and segment_state[i] == SegmentState.BROKEN:
+			segment_state[i] = SegmentState.ACTIVE
+			segment_disabled[i] = false
+			segment_hp[i] = 0.0
+			return true
+	return false
+
 ## Fully restores all health segments and sets state to LIVING.
 ## Armor HP is intentionally NOT restored — armor cannot be healed.
 ## Uses the stored class-specific percentages to restore correct proportional HP.
@@ -366,6 +524,8 @@ func full_heal() -> void:
 	var max_hp: float = get_max_hp()
 	for i in segment_hp.size():
 		segment_disabled[i] = false
+		if i < segment_state.size():
+			segment_state[i] = SegmentState.ACTIVE
 		if i < _segment_percentages.size():
 			segment_hp[i] = max_hp * _segment_percentages[i]
 		else:
@@ -481,6 +641,12 @@ func get_effective_skill_entries() -> Array[SkillTreeEntry]:
 				continue
 			seen[key] = true
 			out.append(entry)
+	# Magazine weapons always provide the base Reload ability.
+	if main_hand_slot != null and main_hand_slot.has_magazine() and not seen.has("reload"):
+		var reload_ability: AbilityData = load("res://resources/abilities/reload.tres") as AbilityData
+		if reload_ability != null:
+			seen["reload"] = true
+			out.append(reload_ability)
 	return out
 
 # ---------------------------------------------------------------------------

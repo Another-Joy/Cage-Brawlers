@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/AbilityData.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/data/AbilityAction.gd" id="2"]
+[sub_resource type="Resource" id="lightning_dice"]
+script = ExtResource("2")
+action_type = 9
+target_type = 0
+range_override = 4
+bonus_dice = null
+uses_weapon_dice = true
+area_radius = 2
+random_tile_count = 3
+flat_bonus = 1
+
+[resource]
+script = ExtResource("1")
+entry_id = "lightning_strike"
+entry_name = "Lightning Strike"
+description = "Strike 3 random tiles within 2 tiles of the target point, prioritizing enemies, then allies, then empty tiles."
+phases = 2
+weapon_requirements = Array[String](["tome", "ball"])
+target_count = 1
+targeting_mode = 2
+actions = [SubResource("lightning_dice")]

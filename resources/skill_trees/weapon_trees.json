@@ -1,0 +1,998 @@
+{
+    "sword": [
+        {
+            "type": "skill",
+            "id": "sword_edge_control",
+            "name": "Edge Control",
+            "description": "Sharpen sword accuracy.",
+            "tier": 1,
+            "triggers": [
+                {
+                    "major": "ON_ATTACK",
+                    "minor": "SELF_WEAPON_TYPE_IS",
+                    "string_param": "sword"
+                }
+            ],
+            "effects": [
+                {
+                    "type": "ADD_ATTACK_ACCURACY",
+                    "flat": 10
+                }
+            ]
+        },
+        {
+            "type": "skill",
+            "id": "sword_perfect_form",
+            "name": "Perfect Form",
+            "description": "Improve sword reliability.",
+            "tier": 1,
+            "triggers": [
+                {
+                    "major": "ON_ATTACK",
+                    "minor": "SELF_WEAPON_TYPE_IS",
+                    "string_param": "sword"
+                }
+            ],
+            "effects": [
+                {
+                    "type": "ADD_RELIABILITY",
+                    "flat": 20
+                }
+            ]
+        },
+        {
+            "type": "skill",
+            "id": "sword_line_blocking",
+            "name": "Line Blocking",
+            "description": "Gain small incoming damage reduction",
+            "tier": 2,
+            "triggers": [
+                {
+                    "major": "ON_TAKE_DAMAGE",
+                    "minor": "SELF_WEAPON_TYPE_IS",
+                    "string_param": "sword"
+                }
+            ],
+            "effects": [
+                {
+                    "type": "REDUCE_INCOMING_DAMAGE",
+                    "flat": 2
+                }
+            ]
+        },
+        {
+            "type": "ability",
+            "id": "sword_sure_strike",
+            "ability_id": "sure_strike",
+            "name": "Sure Strike",
+            "description": "Make an attack that cannot miss, but also cannot critically hit.",
+            "tier": 2
+        },
+        {
+            "type": "skill",
+            "id": "sword_poise_strike",
+            "name": "Poise Strike",
+            "description": "Maintain pressure through reliable cuts.",
+            "tier": 3,
+            "triggers": [
+                {
+                    "major": "ON_ATTACK",
+                    "minor": "SELF_WEAPON_TYPE_IS",
+                    "string_param": "sword"
+                }
+            ],
+            "effects": [
+                {
+                    "type": "ADD_RELIABILITY",
+                    "flat": 20
+                }
+            ]
+        },
+        {
+            "type": "skill",
+            "id": "sword_wip_unused_t3",
+            "name": "WIP-unused slot",
+            "description": "Reserved slot for a future skill.",
+            "tier": 3,
+            "triggers": [],
+            "effects": []
+        },
+        {
+            "type": "skill",
+            "id": "sword_perfect_form_2",
+            "name": "Perfect Form II",
+            "description": "Further improve sword reliability.",
+            "tier": 4,
+            "triggers": [
+                {
+                    "major": "ON_ATTACK",
+                    "minor": "SELF_WEAPON_TYPE_IS",
+                    "string_param": "sword"
+                }
+            ],
+            "effects": [
+                {
+                    "type": "ADD_RELIABILITY",
+                    "flat": 40
+                }
+            ]
+        }
+    ],
+    "axe": [
+        {
+            "type": "skill",
+            "id": "axe_impact_force",
+            "name": "Impact Force",
+            "description": "Gain damage on axe hits.",
+            "tier": 1,
+            "triggers": [
+                {
+                    "major": "ON_DEAL_DAMAGE",
+                    "minor": "SELF_WEAPON_TYPE_IS",
+                    "string_param": "axe"
+                }
+            ],
+            "effects": [
+                {
+                    "type": "ADD_DAMAGE",
+                    "flat": 1
+                }
+            ]
+        },
+        {
+            "type": "skill",
+            "id": "axe_rough_sight",
+            "name": "Rough Sight",
+            "description": "Accuracy gain for axes.",
+            "tier": 1,
+            "triggers": [
+                {
+                    "major": "ON_ATTACK",
+                    "minor": "SELF_WEAPON_TYPE_IS",
+                    "string_param": "axe"
+                }
+            ],
+            "effects": [
+                {
+                    "type": "ADD_ATTACK_ACCURACY",
+                    "flat": 15
+                }
+            ]
+        },
+        {
+            "type": "skill",
+            "id": "axe_relentless_swing",
+            "name": "Relentless Swing",
+            "description": "Main-hand axe attacks strike one additional time.",
+            "tier": 2,
+            "trigger_mode": "ALL",
+            "triggers": [
+                {
+                    "major": "ON_ATTACK",
+                    "minor": "SELF_WEAPON_TYPE_IS",
+                    "string_param": "axe"
+                },
+                {
+                    "major": "ON_ATTACK",
+                    "minor": "ATTACKING_WEAPON_IS_MAIN_HAND"
+                }
+            ],
+            "effects": [
+                {
+                    "type": "ADD_EXTRA_ATTACK",
+                    "flat": 1
+                }
+            ]
+        },
+        {
+            "type": "skill",
+            "id": "axe_heavy_follow",
+            "name": "Impact Force II",
+            "description": "Gain damage on axe hits.",
+            "tier": 2,
+            "triggers": [
+                {
+                    "major": "ON_DEAL_DAMAGE",
+                    "minor": "SELF_WEAPON_TYPE_IS",
+                    "string_param": "axe"
+                }
+            ],
+            "effects": [
+                {
+                    "type": "ADD_DAMAGE",
+                    "flat": 1
+                }
+            ]
+        },
+        {
+            "type": "ability",
+            "id": "axe_reckless_assault",
+            "ability_id": "reckless_assault",
+            "name": "Reckless Assault",
+            "description": "Axe signature smash.",
+            "tier": 3
+        },
+        {
+            "type": "skill",
+            "id": "axe_wip_unused_t3",
+            "name": "WIP-unused slot",
+            "description": "Reserved slot for a future skill.",
+            "tier": 3,
+            "triggers": [],
+            "effects": []
+        },
+        {
+            "type": "skill",
+            "id": "axe_chain_cleave",
+            "name": "Chain Swing",
+            "description": "All axe attacks strike one additional time",
+            "tier": 4,
+            "trigger_mode": "ALL",
+            "triggers": [
+                {
+                    "major": "ON_ATTACK",
+                    "minor": "SELF_WEAPON_TYPE_IS",
+                    "string_param": "axe"
+                }
+            ],
+            "effects": [
+                {
+                    "type": "ADD_EXTRA_ATTACK",
+                    "flat": 1
+                }
+            ]
+        }
+    ],
+    "dagger": [
+        {
+            "type": "skill",
+            "id": "dagger_weakpoint_vision",
+            "name": "Weakpoint Vision",
+            "description": "Improve dagger accuracy.",
+            "tier": 1,
+            "triggers": [
+                {
+                    "major": "ON_ATTACK",
+                    "minor": "SELF_WEAPON_TYPE_IS",
+                    "string_param": "dagger"
+                }
+            ],
+            "effects": [
+                {
+                    "type": "ADD_ATTACK_ACCURACY",
+                    "flat": 10
+                }
+            ]
+        },
+        {
+            "type": "skill",
+            "id": "dagger_vital_strikes",
+            "name": "Vital Strikes",
+            "description": "Dagger attacks have extra damage.",
+            "tier": 1,
+            "triggers": [
+                {
+                    "major": "ON_DEAL_DAMAGE",
+                    "minor": "SELF_WEAPON_TYPE_IS",
+                    "string_param": "dagger"
+                }
+            ],
+            "effects": [
+                {
+                    "type": "ADD_DAMAGE",
+                    "flat": 1
+                }
+            ]
+        },
+        {
+            "type": "skill",
+            "id": "dagger_precision_edge",
+            "name": "Precision Edge",
+            "description": "Mixed style: improve attack reliability.",
+            "tier": 2,
+            "triggers": [
+                {
+                    "major": "ON_ATTACK",
+                    "minor": "SELF_WEAPON_TYPE_IS",
+                    "string_param": "dagger"
+                }
+            ],
+            "effects": [
+                {
+                    "type": "ADD_RELIABILITY",
+                    "flat": 25
+                }
+            ]
+        },
+        {
+            "type": "skill",
+            "id": "dagger_quick_hands",
+            "name": "Quick Hands",
+            "description": "Main-hand dagger attacks gain an extra strike.",
+            "tier": 2,
+            "trigger_mode": "ALL",
+            "triggers": [
+                {
+                    "major": "ON_ATTACK",
+                    "minor": "SELF_WEAPON_TYPE_IS",
+                    "string_param": "dagger"
+                },
+                {
+                    "major": "ON_ATTACK",
+                    "minor": "ATTACKING_WEAPON_IS_MAIN_HAND"
+                }
+            ],
+            "effects": [
+                {
+                    "type": "ADD_EXTRA_ATTACK",
+                    "flat": 1
+                }
+            ]
+        },
+        {
+            "type": "ability",
+            "id": "dagger_twisted_strike",
+            "ability_id": "twisted_strike",
+            "name": "Twisted Strike",
+            "description": "Surprise-only strike that ignores armor and can break another health segment.",
+            "tier": 3
+        },
+        {
+            "type": "skill",
+            "id": "dagger_wip_unused_t3",
+            "name": "WIP-unused slot",
+            "description": "Reserved slot for a future skill.",
+            "tier": 3,
+            "triggers": [],
+            "effects": []
+        },
+        {
+            "type": "skill",
+            "id": "dagger_sure_grip",
+            "name": "Sure Grip",
+            "description": "Mixed style: modest accuracy and reliability boost.",
+            "tier": 4,
+            "triggers": [
+                {
+                    "major": "ON_ATTACK",
+                    "minor": "SELF_WEAPON_TYPE_IS",
+                    "string_param": "dagger"
+                }
+            ],
+            "effects": [
+                {
+                    "type": "ADD_ATTACK_ACCURACY",
+                    "flat": 20
+                },
+                {
+                    "type": "ADD_RELIABILITY",
+                    "flat": 40
+                }
+            ]
+        }
+    ],
+    "bow": [
+        {
+            "type": "skill",
+            "id": "bow_heavy_draw",
+            "name": "Heavy Draw",
+            "description": "Gain damage on bow hits.",
+            "tier": 1,
+            "triggers": [
+                {
+                    "major": "ON_DEAL_DAMAGE",
+                    "minor": "SELF_WEAPON_TYPE_IS",
+                    "string_param": "bow"
+                }
+            ],
+            "effects": [
+                {
+                    "type": "ADD_DAMAGE",
+                    "flat": 1
+                }
+            ]
+        },
+        {
+            "type": "skill",
+            "id": "bow_steady_draw",
+            "name": "Steady Draw",
+            "description": "Gain accuracy on bow hits.",
+            "tier": 1,
+            "triggers": [
+                {
+                    "major": "ON_ATTACK",
+                    "minor": "SELF_WEAPON_TYPE_IS",
+                    "string_param": "bow"
+                }
+            ],
+            "effects": [
+                {
+                    "type": "ADD_ATTACK_ACCURACY",
+                    "flat": 15
+                }
+            ]
+        },
+        {
+            "type": "skill",
+            "id": "bow_hail_shower",
+            "name": "Hail Shower",
+            "description": "Bow shots fire one additional shot.",
+            "tier": 2,
+            "triggers": [
+                {
+                    "major": "ON_ATTACK",
+                    "minor": "SELF_WEAPON_TYPE_IS",
+                    "string_param": "bow"
+                }
+            ],
+            "effects": [
+                {
+                    "type": "ADD_EXTRA_ATTACK",
+                    "flat": 1
+                }
+            ]
+        },
+        {
+            "type": "ability",
+            "id": "bow_achiles_bane",
+            "ability_id": "achiles_bane",
+            "name": "Achiles Bane",
+            "description": "Slows the target.",
+            "tier": 2
+        },
+        {
+            "type": "ability",
+            "id": "bow_double_nook",
+            "ability_id": "double_nook",
+            "name": "Double Nook",
+            "description": "Stuff two arrows into a single shot, but at the cost of accuracy.",
+            "tier": 3
+        },
+        {
+            "type": "skill",
+            "id": "bow_wip_unused_t3",
+            "name": "WIP-unused slot",
+            "description": "Reserved slot for a future skill.",
+            "tier": 3,
+            "triggers": [],
+            "effects": []
+        },
+        {
+            "type": "skill",
+            "id": "bow_release_training",
+            "name": "Release Training",
+            "description": "Off-type support: modest reliability gain.",
+            "tier": 4,
+            "triggers": [
+                {
+                    "major": "ON_ATTACK",
+                    "minor": "SELF_WEAPON_TYPE_IS",
+                    "string_param": "bow"
+                }
+            ],
+            "effects": [
+                {
+                    "type": "ADD_RELIABILITY",
+                    "flat": 40
+                }
+            ]
+        }
+    ],
+    "crossbow": [
+        {
+            "type": "skill",
+            "id": "crossbow_bolt_lock",
+            "name": "Bolt Lock",
+            "description": "Mixed style: improve crossbow accuracy.",
+            "tier": 1,
+            "triggers": [
+                {
+                    "major": "ON_ATTACK",
+                    "minor": "SELF_WEAPON_TYPE_IS",
+                    "string_param": "crossbow"
+                }
+            ],
+            "effects": [
+                {
+                    "type": "ADD_ATTACK_ACCURACY",
+                    "flat": 15
+                }
+            ]
+        },
+        {
+            "type": "skill",
+            "id": "crossbow_piercing_bolt",
+            "name": "Piercing Bolt",
+            "description": "Mixed style: gain damage on successful hits.",
+            "tier": 1,
+            "triggers": [
+                {
+                    "major": "ON_DEAL_DAMAGE",
+                    "minor": "SELF_WEAPON_TYPE_IS",
+                    "string_param": "crossbow"
+                }
+            ],
+            "effects": [
+                {
+                    "type": "ADD_DAMAGE",
+                    "flat": 1
+                }
+            ]
+        },
+        {
+            "type": "skill",
+            "id": "crossbow_repeat_cycle",
+            "name": "Repeat Cycle",
+            "description": "Mixed style: main-hand crossbow attacks gain one extra shot.",
+            "tier": 2,
+            "trigger_mode": "ALL",
+            "triggers": [
+                {
+                    "major": "ON_ATTACK",
+                    "minor": "SELF_WEAPON_TYPE_IS",
+                    "string_param": "crossbow"
+                },
+                {
+                    "major": "ON_ATTACK",
+                    "minor": "ATTACKING_WEAPON_IS_MAIN_HAND"
+                }
+            ],
+            "effects": [
+                {
+                    "type": "ADD_EXTRA_ATTACK",
+                    "flat": 1
+                }
+            ]
+        },
+        {
+            "type": "skill",
+            "id": "crossbow_steady_frame",
+            "name": "Steady Frame",
+            "description": "Mixed style: improve reliability.",
+            "tier": 2,
+            "triggers": [
+                {
+                    "major": "ON_ATTACK",
+                    "minor": "SELF_WEAPON_TYPE_IS",
+                    "string_param": "crossbow"
+                }
+            ],
+            "effects": [
+                {
+                    "type": "ADD_RELIABILITY",
+                    "flat": 30
+                }
+            ]
+        },
+        {
+            "type": "ability",
+            "id": "crossbow_quick_load",
+            "ability_id": "quick_load",
+            "name": "Quick Load",
+            "description": "Quickly reload your crossbow for an extra shot.",
+            "tier": 3
+        },
+        {
+            "type": "skill",
+            "id": "crossbow_lane_threading",
+            "name": "Lane Threading",
+            "description": "Mixed style: increase effective range.",
+            "tier": 3,
+            "triggers": [
+                {
+                    "major": "ON_ATTACK",
+                    "minor": "SELF_WEAPON_TYPE_IS",
+                    "string_param": "crossbow"
+                }
+            ],
+            "effects": [
+                {
+                    "type": "ADD_RANGE",
+                    "flat": 2
+                }
+            ]
+        },
+        {
+            "type": "skill",
+            "id": "crossbow_wip_unused_t4",
+            "name": "WIP-unused slot",
+            "description": "Reserved slot for a future skill.",
+            "tier": 4,
+            "triggers": [],
+            "effects": []
+        }
+    ],
+    "rifle": [
+        {
+            "type": "ability",
+            "id": "rifle_hip_shot",
+            "ability_id": "hip_shot",
+            "name": "Hip Shot",
+            "description": "Quick shot, without much need to aim, but less accurate.",
+            "tier": 1
+        },
+        {
+            "type": "skill",
+            "id": "rifle_breath_control",
+            "name": "Breath Control",
+            "description": "Strong style: improve rifle reliability.",
+            "tier": 1,
+            "triggers": [
+                {
+                    "major": "ON_ATTACK",
+                    "minor": "SELF_WEAPON_TYPE_IS",
+                    "string_param": "rifle"
+                }
+            ],
+            "effects": [
+                {
+                    "type": "ADD_RELIABILITY",
+                    "flat": 25
+                }
+            ]
+        },
+        {
+            "type": "skill",
+            "id": "rifle_marked_fire",
+            "name": "Marked Fire",
+            "description": "Strong style: sharpen rifle accuracy.",
+            "tier": 2,
+            "triggers": [
+                {
+                    "major": "ON_ATTACK",
+                    "minor": "SELF_WEAPON_TYPE_IS",
+                    "string_param": "rifle"
+                }
+            ],
+            "effects": [
+                {
+                    "type": "ADD_ATTACK_ACCURACY",
+                    "flat": 20
+                }
+            ]
+        },
+        {
+            "type": "ability",
+            "id": "rifle_reposition",
+            "ability_id": "reposition",
+            "name": "Reposition",
+            "description": "Reposition after firing for tactical advantage.",
+            "tier": 2
+        },
+        {
+            "type": "skill",
+            "id": "rifle_breath_control_2",
+            "name": "Breath Control II",
+            "description": "Strong style: increase shot reliability further.",
+            "tier": 3,
+            "triggers": [
+                {
+                    "major": "ON_ATTACK",
+                    "minor": "SELF_WEAPON_TYPE_IS",
+                    "string_param": "rifle"
+                }
+            ],
+            "effects": [
+                {
+                    "type": "ADD_RELIABILITY",
+                    "flat": 40
+                }
+            ]
+        },
+        {
+            "type": "skill",
+            "id": "rifle_kill_zone",
+            "name": "Kill Zone",
+            "description": "Strong style: high-precision lane pressure.",
+            "tier": 3,
+            "triggers": [
+                {
+                    "major": "ON_ATTACK",
+                    "minor": "SELF_WEAPON_TYPE_IS",
+                    "string_param": "rifle"
+                }
+            ],
+            "effects": [
+                {
+                    "type": "ADD_ATTACK_ACCURACY",
+                    "flat": 30
+                }
+            ]
+        },
+        {
+            "type": "skill",
+            "id": "rifle_wip_unused_t4",
+            "name": "WIP-unused slot",
+            "description": "Reserved slot for a future skill.",
+            "tier": 4,
+            "triggers": [],
+            "effects": []
+        }
+    ],
+    "tome": [
+        {
+            "type": "skill",
+            "id": "tome_script_focus",
+            "name": "Script Focus",
+            "description": "Strong style: improve tome accuracy.",
+            "tier": 1,
+            "triggers": [
+                {
+                    "major": "ON_ATTACK",
+                    "minor": "SELF_WEAPON_TYPE_IS",
+                    "string_param": "tome"
+                }
+            ],
+            "effects": [
+                {
+                    "type": "ADD_ATTACK_ACCURACY",
+                    "flat": 8
+                }
+            ]
+        },
+        {
+            "type": "skill",
+            "id": "tome_patterning",
+            "name": "Patterning",
+            "description": "Strong style: improve magical reliability.",
+            "tier": 1,
+            "triggers": [
+                {
+                    "major": "ON_ATTACK",
+                    "minor": "SELF_WEAPON_TYPE_IS",
+                    "string_param": "tome"
+                }
+            ],
+            "effects": [
+                {
+                    "type": "ADD_RELIABILITY",
+                    "flat": 20
+                }
+            ]
+        },
+        {
+            "type": "skill",
+            "id": "tome_sigil_pressure",
+            "name": "Sigil Pressure",
+            "description": "Off-type support: add damage on spell hits.",
+            "tier": 2,
+            "triggers": [
+                {
+                    "major": "ON_DEAL_DAMAGE",
+                    "minor": "SELF_WEAPON_TYPE_IS",
+                    "string_param": "tome"
+                }
+            ],
+            "effects": [
+                {
+                    "type": "ADD_DAMAGE",
+                    "flat": 1
+                }
+            ]
+        },
+        {
+            "type": "skill",
+            "id": "tome_page_reach",
+            "name": "Page Reach",
+            "description": "Strong style: increase spell range.",
+            "tier": 2,
+            "triggers": [
+                {
+                    "major": "ON_ATTACK",
+                    "minor": "SELF_WEAPON_TYPE_IS",
+                    "string_param": "tome"
+                }
+            ],
+            "effects": [
+                {
+                    "type": "ADD_RANGE",
+                    "flat": 1
+                }
+            ]
+        },
+        {
+            "type": "ability",
+            "id": "tome_fire_fall",
+            "ability_id": "fire_fall",
+            "name": "Fire Fall",
+            "description": "Rain down fiery projectiles on enemies.",
+            "tier": 3
+        },
+        {
+            "type": "ability",
+            "id": "tome_lightning_strike",
+            "ability_id": "lightning_strike",
+            "name": "Lightning Strike",
+            "description": "Strike 3 random targets with a great lightning bolt.",
+            "tier": 3
+        },
+        {
+            "type": "skill",
+            "id": "tome_rune_lock",
+            "name": "Rune Lock",
+            "description": "Strong style: lock accuracy for repeated casts.",
+            "tier": 4,
+            "triggers": [
+                {
+                    "major": "ON_ATTACK",
+                    "minor": "SELF_WEAPON_TYPE_IS",
+                    "string_param": "tome"
+                }
+            ],
+            "effects": [
+                {
+                    "type": "ADD_ATTACK_ACCURACY",
+                    "flat": 6
+                }
+            ]
+        },
+        {
+            "type": "skill",
+            "id": "tome_stable_channel",
+            "name": "Stable Channel",
+            "description": "Strong style: maintain reliable magical output.",
+            "tier": 4,
+            "triggers": [
+                {
+                    "major": "ON_ATTACK",
+                    "minor": "SELF_WEAPON_TYPE_IS",
+                    "string_param": "tome"
+                }
+            ],
+            "effects": [
+                {
+                    "type": "ADD_RELIABILITY",
+                    "flat": 15
+                }
+            ]
+        }
+    ],
+    "ball": [
+        {
+            "type": "skill",
+            "id": "ball_orb_focus",
+            "name": "Orb Focus",
+            "description": "Mixed style: improve orb accuracy.",
+            "tier": 1,
+            "triggers": [
+                {
+                    "major": "ON_ATTACK",
+                    "minor": "SELF_WEAPON_TYPE_IS",
+                    "string_param": "ball"
+                }
+            ],
+            "effects": [
+                {
+                    "type": "ADD_ATTACK_ACCURACY",
+                    "flat": 6
+                }
+            ]
+        },
+        {
+            "type": "skill",
+            "id": "ball_flux_control",
+            "name": "Flux Control",
+            "description": "Mixed style: improve magical reliability.",
+            "tier": 1,
+            "triggers": [
+                {
+                    "major": "ON_ATTACK",
+                    "minor": "SELF_WEAPON_TYPE_IS",
+                    "string_param": "ball"
+                }
+            ],
+            "effects": [
+                {
+                    "type": "ADD_RELIABILITY",
+                    "flat": 15
+                }
+            ]
+        },
+        {
+            "type": "skill",
+            "id": "ball_siphon_edge",
+            "name": "Siphon Edge",
+            "description": "Mixed style: increase damage on successful hits.",
+            "tier": 2,
+            "triggers": [
+                {
+                    "major": "ON_DEAL_DAMAGE",
+                    "minor": "SELF_WEAPON_TYPE_IS",
+                    "string_param": "ball"
+                }
+            ],
+            "effects": [
+                {
+                    "type": "ADD_DAMAGE",
+                    "flat": 1
+                }
+            ]
+        },
+        {
+            "type": "skill",
+            "id": "ball_arc_geometry",
+            "name": "Arc Geometry",
+            "description": "Mixed style: increase magical range.",
+            "tier": 2,
+            "triggers": [
+                {
+                    "major": "ON_ATTACK",
+                    "minor": "SELF_WEAPON_TYPE_IS",
+                    "string_param": "ball"
+                }
+            ],
+            "effects": [
+                {
+                    "type": "ADD_RANGE",
+                    "flat": 1
+                }
+            ]
+        },
+        {
+            "type": "ability",
+            "id": "ball_drain_life",
+            "ability_id": "drain_life",
+            "name": "Drain Life",
+            "description": "Siphon life force from an enemy, then channel it into an ally.",
+            "tier": 1
+        },
+        {
+            "type": "ability",
+            "id": "ball_watchers_eye",
+            "ability_id": "watchers_eye",
+            "name": "Watcher's Eye",
+            "description": "Summon a floating eye that shares vision with your team.",
+            "tier": 1
+        },
+        {
+            "type": "skill",
+            "id": "ball_ritual_echo",
+            "name": "Ritual Echo",
+            "description": "Mixed style: ability attacks with orb gain extra damage.",
+            "tier": 4,
+            "trigger_mode": "ALL",
+            "triggers": [
+                {
+                    "major": "ON_DEAL_DAMAGE",
+                    "minor": "SELF_WEAPON_TYPE_IS",
+                    "string_param": "ball"
+                },
+                {
+                    "major": "ON_DEAL_DAMAGE",
+                    "minor": "ATTACK_IS_ABILITY"
+                }
+            ],
+            "effects": [
+                {
+                    "type": "ADD_DAMAGE",
+                    "flat": 1
+                }
+            ]
+        },
+        {
+            "type": "skill",
+            "id": "ball_orbiting_shards",
+            "name": "Orbiting Shards",
+            "description": "Mixed style: main-hand orb attacks gain one extra strike.",
+            "tier": 4,
+            "trigger_mode": "ALL",
+            "triggers": [
+                {
+                    "major": "ON_ATTACK",
+                    "minor": "SELF_WEAPON_TYPE_IS",
+                    "string_param": "ball"
+                },
+                {
+                    "major": "ON_ATTACK",
+                    "minor": "ATTACKING_WEAPON_IS_MAIN_HAND"
+                }
+            ],
+            "effects": [
+                {
+                    "type": "ADD_EXTRA_ATTACK",
+                    "flat": 1
+                }
+            ]
+        }
+    ]
+}

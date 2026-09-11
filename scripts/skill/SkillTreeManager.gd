@@ -12,14 +12,27 @@ const TREE_WEAPON: int = 2
 const _ABILITY_FILES: Dictionary = {
 	"achiles_bane": "res://resources/abilities/achiles_bane.tres",
 	"drain_life": "res://resources/abilities/drain_life.tres",
+	"fire_fall": "res://resources/abilities/fire_fall.tres",
 	"hip_shot": "res://resources/abilities/hip_shot.tres",
+	"lightning_strike": "res://resources/abilities/lightning_strike.tres",
+	"mend_segment": "res://resources/abilities/mend_segment.tres",
+	"quick_load": "res://resources/abilities/quick_load.tres",
+	"reload": "res://resources/abilities/reload.tres",
 	"peek_shot": "res://resources/abilities/peek_shot.tres",
 	"reckless_assault": "res://resources/abilities/reckless_assault.tres",
 	"regenerate": "res://resources/abilities/regenerate.tres",
 	"riposte": "res://resources/abilities/riposte.tres",
+	"reposition": "res://resources/abilities/reposition.tres",
+	"sure_strike": "res://resources/abilities/sure_strike.tres",
+	"twisted_strike": "res://resources/abilities/twisted_strike.tres",
+	"watchers_eye": "res://resources/abilities/watchers_eye.tres",
 }
+const _CLASS_TREE_CATALOG_PATH: String = "res://resources/skill_trees/class_trees.json"
+const _ATTRIBUTE_TREE_CATALOG_PATH: String = "res://resources/skill_trees/attribute_trees.json"
+const _WEAPON_TREE_CATALOG_PATH: String = "res://resources/skill_trees/weapon_trees.json"
 
 static var _ability_cache: Dictionary = {}
+static var _tree_catalog_cache: Dictionary = {}
 
 static func ensure_character_skill_trees(char_data: CharacterData) -> void:
 	if char_data == null:
@@ -135,9 +148,13 @@ static func _choose_weighted_weapon_category(categories: Array[WeaponType.Type],
 	return int(categories[0])
 
 static func _build_class_tree(char_data: CharacterData) -> Array:
+	var class_key: String = _get_class_id(char_data)
+	var loaded_tree: Array = _load_tree_from_catalog(_CLASS_TREE_CATALOG_PATH, class_key, TREE_CLASS)
+	if not loaded_tree.is_empty():
+		return loaded_tree
 	var damage_minor: SkillCondition.MinorCondition = _minor_for_damage_type(
 		char_data.class_data.main_damage_type if char_data.class_data != null else WeaponData.DamageType.PHYSICAL)
-	var class_id: String = _get_class_id(char_data)
+	var class_id: String = class_key
 	return [
 		_make_skill("%s_class_training" % class_id, "Class Training", "Gain accuracy with your class's preferred style.", TREE_CLASS, 1, [_condition(SkillCondition.MajorCondition.ON_ATTACK, damage_minor)], [_flat_effect(SkillEffect.EffectType.ADD_ATTACK_ACCURACY, 5)]),
 		_make_skill("%s_fieldcraft" % class_id, "Fieldcraft", "Gain damage when your class's attacks connect.", TREE_CLASS, 1, [_condition(SkillCondition.MajorCondition.ON_DEAL_DAMAGE, damage_minor)], [_flat_effect(SkillEffect.EffectType.ADD_DAMAGE, 1)]),
@@ -151,6 +168,10 @@ static func _build_class_tree(char_data: CharacterData) -> Array:
 	]
 
 static func _build_attribute_tree(stat_name: String) -> Array:
+	var stat_key: String = stat_name.to_lower()
+	var loaded_tree: Array = _load_tree_from_catalog(_ATTRIBUTE_TREE_CATALOG_PATH, stat_key, TREE_ATTRIBUTE)
+	if not loaded_tree.is_empty():
+		return loaded_tree
 	match stat_name.to_lower():
 		"strength":
 			return _build_strength_tree()
@@ -165,6 +186,9 @@ static func _build_attribute_tree(stat_name: String) -> Array:
 
 static func _build_weapon_tree(weapon_type: int) -> Array:
 	var weapon_name: String = WeaponType.get_type_name(weapon_type)
+	var loaded_tree: Array = _load_tree_from_catalog(_WEAPON_TREE_CATALOG_PATH, weapon_name, TREE_WEAPON)
+	if not loaded_tree.is_empty():
+		return loaded_tree
 	return [
 		_make_skill("%s_weapon_accuracy" % weapon_name, "%s Familiarity" % _title_case(weapon_name), "Gain accuracy with this weapon type.", TREE_WEAPON, 1, [_condition(SkillCondition.MajorCondition.ON_ATTACK, SkillCondition.MinorCondition.SELF_WEAPON_TYPE_IS, weapon_name)], [_flat_effect(SkillEffect.EffectType.ADD_ATTACK_ACCURACY, 5)]),
 		_make_skill("%s_weapon_force" % weapon_name, "%s Force" % _title_case(weapon_name), "Gain damage with this weapon type.", TREE_WEAPON, 1, [_condition(SkillCondition.MajorCondition.ON_DEAL_DAMAGE, SkillCondition.MinorCondition.SELF_WEAPON_TYPE_IS, weapon_name)], [_flat_effect(SkillEffect.EffectType.ADD_DAMAGE, 1)]),
@@ -176,6 +200,156 @@ static func _build_weapon_tree(weapon_type: int) -> Array:
 		_make_skill("%s_weapon_burden" % weapon_name, "%s Burden Relief" % _title_case(weapon_name), "Your training lowers the burden of this combat style.", TREE_WEAPON, 4, [], [_flat_effect(SkillEffect.EffectType.REDUCE_WEIGHT, 1)]),
 		_make_skill("%s_weapon_mastery" % weapon_name, "%s Mastery" % _title_case(weapon_name), "Capstone weapon bonuses.", TREE_WEAPON, 5, [_condition(SkillCondition.MajorCondition.ON_ATTACK, SkillCondition.MinorCondition.SELF_WEAPON_TYPE_IS, weapon_name)], [_flat_effect(SkillEffect.EffectType.ADD_ATTACK_ACCURACY, 10), _flat_effect(SkillEffect.EffectType.ADD_DAMAGE, 2)]),
 	]
+
+static func _load_tree_from_catalog(catalog_path: String, tree_key: String, tree_type: int) -> Array:
+	if tree_key == "":
+		return []
+	var catalog: Dictionary = _load_tree_catalog(catalog_path)
+	if catalog.is_empty() or not catalog.has(tree_key):
+		return []
+	var node_defs: Variant = catalog.get(tree_key, [])
+	if not (node_defs is Array):
+		push_warning("SkillTreeManager: catalog key '%s' in %s is not an array." % [tree_key, catalog_path])
+		return []
+	var tree: Array = []
+	for raw_node in node_defs:
+		if not (raw_node is Dictionary):
+			continue
+		var entry: SkillTreeEntry = _entry_from_node_dict(raw_node as Dictionary, tree_type)
+		if entry != null:
+			tree.append(entry)
+	if tree.is_empty():
+		push_warning("SkillTreeManager: no valid nodes found for '%s' in %s." % [tree_key, catalog_path])
+	return tree
+
+static func _load_tree_catalog(catalog_path: String) -> Dictionary:
+	if _tree_catalog_cache.has(catalog_path):
+		return _tree_catalog_cache[catalog_path] as Dictionary
+	if not FileAccess.file_exists(catalog_path):
+		push_warning("SkillTreeManager: tree catalog missing: %s" % catalog_path)
+		_tree_catalog_cache[catalog_path] = {}
+		return {}
+	var text: String = FileAccess.get_file_as_string(catalog_path)
+	var parsed: Variant = JSON.parse_string(text)
+	if parsed is Dictionary:
+		var out: Dictionary = parsed as Dictionary
+		_tree_catalog_cache[catalog_path] = out
+		return out
+	push_warning("SkillTreeManager: invalid JSON in %s" % catalog_path)
+	_tree_catalog_cache[catalog_path] = {}
+	return {}
+
+static func _entry_from_node_dict(node: Dictionary, tree_type: int) -> SkillTreeEntry:
+	var node_type: String = str(node.get("type", "skill")).to_lower()
+	var node_id: String = str(node.get("id", "")).strip_edges()
+	if node_id == "":
+		return null
+	var tier: int = maxi(1, int(node.get("tier", 1)))
+	var required_level: int = maxi(1, int(node.get("required_level", 1)))
+	var prerequisites: Array[String] = []
+	for raw_pre in Array(node.get("prerequisites", [])):
+		var pre: String = str(raw_pre).strip_edges()
+		if pre != "":
+			prerequisites.append(pre)
+
+	if node_type == "ability":
+		var ability_id: String = str(node.get("ability_id", "")).strip_edges()
+		if ability_id == "":
+			return null
+		var ability_entry: SkillTreeEntry = _make_ability_node(node_id, ability_id, tree_type, tier)
+		ability_entry.required_level = required_level
+		ability_entry.prerequisites = prerequisites
+		if node.has("name"):
+			ability_entry.entry_name = str(node.get("name", ability_entry.entry_name))
+		if node.has("description"):
+			ability_entry.description = str(node.get("description", ability_entry.description))
+		ability_entry.keywords = _to_string_array(Array(node.get("keywords", [])))
+		return ability_entry
+
+	var skill: SkillData = SkillData.new()
+	skill.entry_id = node_id
+	skill.entry_name = str(node.get("name", _title_case(node_id)))
+	skill.description = str(node.get("description", ""))
+	skill.tree_type = tree_type
+	skill.node_tier = tier
+	skill.required_level = required_level
+	skill.prerequisites = prerequisites
+	skill.keywords = _to_string_array(Array(node.get("keywords", [])))
+	skill.trigger_match_mode = _enum_value_from_name(
+		SkillData.TriggerMatchMode.keys(),
+		str(node.get("trigger_mode", "ANY")),
+		SkillData.TriggerMatchMode.ANY)
+	skill.triggers = _parse_conditions(Array(node.get("triggers", [])))
+	skill.effects = _parse_effects(Array(node.get("effects", [])))
+	return skill
+
+static func _parse_conditions(raw_conditions: Array) -> Array[SkillCondition]:
+	var out: Array[SkillCondition] = []
+	for raw in raw_conditions:
+		if not (raw is Dictionary):
+			continue
+		var d: Dictionary = raw as Dictionary
+		var c: SkillCondition = SkillCondition.new()
+		c.major = _enum_value_from_name(
+			SkillCondition.MajorCondition.keys(),
+			str(d.get("major", "ALWAYS")),
+			SkillCondition.MajorCondition.ALWAYS)
+		c.minor = _enum_value_from_name(
+			SkillCondition.MinorCondition.keys(),
+			str(d.get("minor", "NONE")),
+			SkillCondition.MinorCondition.NONE)
+		c.string_param = str(d.get("string_param", ""))
+		out.append(c)
+	return out
+
+static func _parse_effects(raw_effects: Array) -> Array[SkillEffect]:
+	var out: Array[SkillEffect] = []
+	for raw in raw_effects:
+		if not (raw is Dictionary):
+			continue
+		var d: Dictionary = raw as Dictionary
+		var e: SkillEffect = SkillEffect.new()
+		e.effect_type = _enum_value_from_name(
+			SkillEffect.EffectType.keys(),
+			str(d.get("type", "ADD_DAMAGE")),
+			SkillEffect.EffectType.ADD_DAMAGE)
+		e.target = _enum_value_from_name(
+			SkillEffect.EffectTarget.keys(),
+			str(d.get("target", "SELF")),
+			SkillEffect.EffectTarget.SELF)
+		e.value_type = _enum_value_from_name(
+			SkillEffect.ValueType.keys(),
+			str(d.get("value_type", "FLAT")),
+			SkillEffect.ValueType.FLAT)
+		e.flat_value = int(d.get("flat", d.get("flat_value", 0)))
+		e.modifier_stat = str(d.get("modifier_stat", ""))
+		e.modifier_divisor = maxi(1, int(d.get("modifier_divisor", 2)))
+		e.string_param = str(d.get("string_param", ""))
+		e.uses_reliability = bool(d.get("uses_reliability", false))
+		if e.value_type == SkillEffect.ValueType.DICE:
+			var dice_cfg: Dictionary = d.get("dice", {}) as Dictionary
+			var dice: DiceValue = DiceValue.new()
+			dice.count = maxi(1, int(dice_cfg.get("count", 1)))
+			dice.sides = maxi(2, int(dice_cfg.get("sides", 6)))
+			dice.reliability = float(dice_cfg.get("reliability", 0.0))
+			e.dice = dice
+		out.append(e)
+	return out
+
+static func _enum_value_from_name(keys: PackedStringArray, name: String, default_value: int) -> int:
+	var wanted: String = name.to_upper()
+	for i in range(keys.size()):
+		if keys[i].to_upper() == wanted:
+			return i
+	return default_value
+
+static func _to_string_array(raw: Array) -> Array[String]:
+	var out: Array[String] = []
+	for item in raw:
+		var value: String = str(item).strip_edges()
+		if value != "":
+			out.append(value)
+	return out
 
 static func _build_strength_tree() -> Array:
 	return [

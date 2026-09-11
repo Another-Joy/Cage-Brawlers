@@ -66,6 +66,7 @@ const C_HP_FULL     := Color(0.15, 0.85, 0.15)
 const C_HP_LOW      := Color(0.90, 0.10, 0.10)
 const C_HP_BG       := Color(0.15, 0.08, 0.08)
 const C_HP_DISABLED := Color(0.20, 0.20, 0.20, 0.50)
+const C_HP_BROKEN   := Color(0.45, 0.18, 0.18, 0.75)
 const C_HP_BORDER   := Color(0.50, 0.50, 0.50)
 
 ## Map panning speed (pixels per second)
@@ -86,8 +87,11 @@ var _state       : Dictionary = {}
 var _input_mode  : String     = "none"
 var _hovered     : Vector2i   = Vector2i(-1, -1)
 var _selected_ability_id  : String = ""
+var _selected_ability_range: int = 0
+var _selected_ability_targeting_mode: int = 0
 var _pending_targets      : Array  = []
 var _pending_target_count : int    = 0
+var _pending_target_tile  : Vector2i = Vector2i(-1, -1)
 
 var local_player_id  : String     = ""
 var _visible_tiles   : Dictionary = {}
@@ -394,7 +398,7 @@ func _update_ui() -> void:
 		_lbl_phase.text = phase
 	var is_my_turn: bool = (not active_char.is_empty()) and (active_char.get("player_id","") == local_player_id)
 	_rebuild_bottom_hud(phase if is_my_turn else "", active_id)
-	var show_facing: bool = (phase == "pending_rotation" and is_my_turn)
+	var show_facing: bool = ((phase == "pending_rotation") or _input_mode == "select_ability_direction") and is_my_turn
 	if show_facing:
 		var vp := get_viewport_rect().size
 		_grid_facing.position = Vector2(vp.x * 0.5 - 75.0, vp.y - HUD_BOTTOM_H - 120.0)
@@ -593,13 +597,14 @@ func _add_ability_buttons(container: HBoxContainer, phase_flag: int, cd: Diction
 		var ab_id        : String = ab.get("id","")
 		var needs_target : bool   = ab.get("needs_target", false)
 		var target_count : int    = ab.get("target_count", 1)
+		var targeting_mode: int   = ab.get("targeting_mode", 0)
 		var ab_range     : int    = ab.get("range", 0)
 		var desc         : String = ab.get("description","")
 		var btn := Button.new()
 		btn.text = label
 		btn.disabled = cooldown > 0
 		btn.custom_minimum_size = Vector2(BTN_SIZE, BTN_SIZE)
-		btn.pressed.connect(_on_ability_pressed.bind(ab_id, needs_target, target_count))
+		btn.pressed.connect(_on_ability_pressed.bind(ab_id, needs_target, target_count, targeting_mode, ab_range))
 		btn.mouse_entered.connect(_on_ability_btn_hover.bind(ab_range, desc, btn))
 		btn.mouse_exited.connect(_on_ability_btn_exit)
 		container.add_child(btn)
@@ -651,27 +656,67 @@ func _on_crouch() -> void:
 func _on_cancel() -> void:
 	_input_mode = "none"
 	_selected_ability_id = ""
+	_selected_ability_range = 0
+	_selected_ability_targeting_mode = 0
 	_pending_targets = []
 	_pending_target_count = 0
+	_pending_target_tile = Vector2i(-1, -1)
 	_ability_hover_range = {}
 	_update_ui()
 	queue_redraw()
 
 
 func _on_facing_pressed(direction: int) -> void:
+	if _input_mode == "select_ability_direction":
+		var tile := _pending_target_tile
+		_input_mode = "none"
+		_submit({
+			"type": "ability",
+			"char_id": _active_id(),
+			"ability_id": _selected_ability_id,
+			"target_tile": {"x": tile.x, "y": tile.y, "z": 0},
+			"direction": direction,
+		})
+		_selected_ability_id = ""
+		_selected_ability_range = 0
+		_selected_ability_targeting_mode = 0
+		_pending_target_tile = Vector2i(-1, -1)
+		_ability_hover_range = {}
+		_update_ui()
+		queue_redraw()
+		return
 	_submit({"type": "facing", "char_id": _active_id(), "direction": direction})
 
 
-func _on_ability_pressed(ability_id: String, needs_target: bool, target_count: int = 1) -> void:
+func _on_ability_pressed(ability_id: String, needs_target: bool, target_count: int = 1, targeting_mode: int = 0, ab_range: int = 0) -> void:
 	_ability_hover_range = {}
+	_selected_ability_range = ab_range
+	_selected_ability_targeting_mode = targeting_mode
+	var active_char: Dictionary = _find_char_dict(_active_id())
+	if not active_char.is_empty() and ab_range > 0:
+		_ability_hover_range = {
+			"range": ab_range,
+			"char_pos": Vector2i(int(active_char["pos"]["x"]), int(active_char["pos"]["y"])),
+		}
 	if needs_target:
 		_selected_ability_id = ability_id
 		_pending_targets = []
 		_pending_target_count = maxi(1, target_count)
-		_input_mode = "select_ability_target"
+		_pending_target_tile = Vector2i(-1, -1)
+		match targeting_mode:
+			AbilityData.TargetingMode.CHARACTER:
+				_input_mode = "select_ability_target"
+			AbilityData.TargetingMode.TILE, AbilityData.TargetingMode.TILE_AND_DIRECTION:
+				_input_mode = "select_ability_tile"
+			_:
+				_input_mode = "select_ability_target"
 		_update_ui()
 		queue_redraw()
 	else:
+		_selected_ability_id = ""
+		_selected_ability_range = 0
+		_selected_ability_targeting_mode = 0
+		_ability_hover_range = {}
 		_submit({"type": "ability", "char_id": _active_id(), "ability_id": ability_id})
 
 
@@ -765,10 +810,34 @@ func _unhandled_input(event: InputEvent) -> void:
 						"target_id"   : _pending_targets[0],
 						"target_ids"  : _pending_targets.duplicate()})
 					_selected_ability_id = ""
+					_selected_ability_range = 0
+					_selected_ability_targeting_mode = 0
 					_pending_targets = []
 					_pending_target_count = 0
+					_ability_hover_range = {}
 					_update_ui()
 					queue_redraw()
+		"select_ability_tile":
+			if _selected_ability_targeting_mode == AbilityData.TargetingMode.TILE_AND_DIRECTION:
+				_pending_target_tile = tile
+				_input_mode = "select_ability_direction"
+				_update_ui()
+				queue_redraw()
+			else:
+				_input_mode = "none"
+				_submit({
+					"type": "ability",
+					"char_id": aid,
+					"ability_id": _selected_ability_id,
+					"target_tile": {"x": tile.x, "y": tile.y, "z": 0},
+				})
+				_selected_ability_id = ""
+				_selected_ability_range = 0
+				_selected_ability_targeting_mode = 0
+				_pending_target_tile = Vector2i(-1, -1)
+				_ability_hover_range = {}
+				_update_ui()
+				queue_redraw()
 
 
 func _check_portrait_hover(mouse_pos: Vector2) -> void:
@@ -802,12 +871,17 @@ func _build_equip_lines(cd: Dictionary) -> Array[String]:
 		lines.append("Main: %s  %s %s  r%d" % [
 			mh.get("name","?"), mh.get("damage","?"), mh.get("damage_type","?"), int(mh.get("range",1))
 		])
+		if int(mh.get("mag_capacity", 0)) > 0:
+			lines.append("  Mag: %d/%d" % [int(mh.get("loaded_ammo", 0)), int(mh.get("mag_capacity", 0))])
 		if kw != "":
 			lines.append("  [%s]" % kw)
 	if equip.has("off_hand"):
 		var oh : Dictionary = equip["off_hand"]
 		match oh.get("kind","item"):
-			"weapon": lines.append("Off:  %s  %s" % [oh.get("name","?"), oh.get("damage","?")])
+			"weapon":
+				lines.append("Off:  %s  %s" % [oh.get("name","?"), oh.get("damage","?")])
+				if int(oh.get("mag_capacity", 0)) > 0:
+					lines.append("  Mag: %d/%d" % [int(oh.get("loaded_ammo", 0)), int(oh.get("mag_capacity", 0))])
 			"shield": lines.append("Off:  %s  Ev+%d" % [oh.get("name","?"), int(oh.get("evasion_bonus",0))])
 			_:        lines.append("Off:  %s" % oh.get("name","?"))
 	if equip.has("armor"):
@@ -989,6 +1063,7 @@ func _draw_hp_bars(cd: Dictionary, tile_origin: Vector2) -> void:
 	var segs      : Array = cd.get("hp_segments",[])
 	var seg_maxs  : Array = cd.get("hp_seg_max",[])
 	var disabled  : Array = cd.get("hp_disabled",[])
+	var seg_state  : Array = cd.get("hp_seg_state",[])
 	var armor_hp  : float = cd.get("armor_hp",0.0)
 	var armor_max : float = cd.get("armor_max_hp",0.0)
 	if segs.is_empty():
@@ -1007,6 +1082,7 @@ func _draw_hp_bars(cd: Dictionary, tile_origin: Vector2) -> void:
 			"cur"     : float(segs[i]),
 			"max"     : float(seg_maxs[i]) if i < seg_maxs.size() else 0.0,
 			"disabled": (i < disabled.size() and disabled[i]),
+			"state"   : int(seg_state[i]) if i < seg_state.size() else ((i < disabled.size() and disabled[i]) ? 2 : 0),
 			"armor"   : false,
 		})
 	if armor_max > 0.0:
@@ -1016,8 +1092,10 @@ func _draw_hp_bars(cd: Dictionary, tile_origin: Vector2) -> void:
 		var sm : float = seg["max"]
 		var sw : float = bar_total * (sm / total_max) - gap
 		var sr := Rect2(bar_x + seg_x, bar_y, sw, hp_bar_h)
-		if seg["disabled"]:
+		if int(seg.get("state", 0)) == 2:
 			draw_rect(sr, C_HP_DISABLED, true)
+		elif int(seg.get("state", 0)) == 1:
+			draw_rect(sr, C_HP_BROKEN, true)
 		elif seg["armor"]:
 			draw_rect(sr, Color(0.4, 0.3, 0.0), true)
 			var ff: float = (seg["cur"] / sm) if sm > 0.0 else 0.0
@@ -1046,11 +1124,13 @@ func _draw_hover_popup(cd: Dictionary) -> void:
 	if is_mine:
 		var segs     : Array = cd.get("hp_segments",[])
 		var seg_maxs : Array = cd.get("hp_seg_max",[])
+		var seg_state: Array = cd.get("hp_seg_state",[])
 		var cur : float = 0.0
 		var mx  : float = 0.0
 		for i in segs.size():
 			cur += float(segs[i])
-			mx  += float(seg_maxs[i]) if i < seg_maxs.size() else 0.0
+			if i < seg_maxs.size() and (i >= seg_state.size() or int(seg_state[i]) == 0):
+				mx += float(seg_maxs[i])
 		lines.append("HP: %d / %d" % [int(cur), int(mx)])
 	else:
 		lines.append("Status: %s" % cd.get("hp_state","?"))

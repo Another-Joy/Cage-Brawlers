@@ -122,24 +122,41 @@ If you skip this step, the enum exists but does nothing.
 
 ## Adding new tree nodes
 
-The generated trees are currently defined in `scripts/skill/SkillTreeManager.gd`.
+Trees are now data-driven and loaded from JSON catalogs:
 
-Useful helpers there:
+- `resources/skill_trees/class_trees.json`
+- `resources/skill_trees/attribute_trees.json`
+- `resources/skill_trees/weapon_trees.json`
 
-- `_make_skill(...)`
-- `_make_ability_node(...)`
-- `_flat_effect(...)`
-- `_condition(...)`
+Catalog keys:
 
-To add a new node:
+- Class trees: use `ClassData.class_id` (`fighter`, `marksman`, `mage`, ...)
+- Attribute trees: `strength`, `dexterity`, `constitution`, `wisdom`, `intelligence`
+- Weapon trees: `sword`, `axe`, `dagger`, `bow`, `crossbow`, `rifle`, `tome`, `ball`
 
-1. Pick the target builder:
-   - `_build_class_tree(...)`
-   - `_build_attribute_tree(...)`
-   - `_build_weapon_tree(...)`
-2. Add a `SkillData` or `AbilityData` node
-3. Set its tier with the `tier` argument
-4. Keep the tree at exactly 9 nodes
+Each key maps to exactly 9 nodes.
+
+Node schema:
+
+- `type`: `"skill"` or `"ability"`
+- `id`, `name`, `description`, `tier`
+- Optional: `required_level`, `prerequisites`, `keywords`
+- For ability nodes: `ability_id`
+- For skill nodes: `triggers` and `effects`
+
+Trigger object fields:
+
+- `major` (name from `SkillCondition.MajorCondition`)
+- `minor` (name from `SkillCondition.MinorCondition`, optional)
+- `string_param` (optional)
+
+Effect object fields:
+
+- `type` (name from `SkillEffect.EffectType`)
+- Optional: `target`, `value_type`, `flat`, `modifier_stat`, `modifier_divisor`, `string_param`, `uses_reliability`
+- For dice effects: `dice: { "count": int, "sides": int, "reliability": float }`
+
+`SkillTreeManager.gd` still contains legacy fallback builders, but catalog data is preferred. Keep catalogs complete to avoid fallback behavior.
 
 ## Runtime rule for unlocked entries
 
@@ -161,10 +178,12 @@ If unlock rules change later, update them in `SkillTreeManager.gd` so both UI an
 
 ## Adding new active abilities to trees
 
-To place an existing `.tres` ability into a generated tree:
+To place an existing `.tres` ability into a tree:
 
 1. Add its resource path to `_ABILITY_FILES` in `SkillTreeManager.gd`
-2. Use `_make_ability_node(...)` in the desired tree builder
+2. In the desired catalog node, set:
+    - `type = "ability"`
+    - `ability_id = "your_ability_id"`
 
 This clones the base `AbilityData` and gives it a deterministic node id for unlock/save purposes.
 

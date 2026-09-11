@@ -16,10 +16,11 @@ signal connect_requested(ip: String)
 # ---------------------------------------------------------------------------
 
 const WEAPON_FILES: Array[String] = [
+	"res://resources/weapons/greatsword.tres",
 	"res://resources/weapons/longsword.tres",
-	"res://resources/weapons/sword.tres",
-	"res://resources/weapons/battleaxe.tres",
+	"res://resources/weapons/shortsword.tres",
 	"res://resources/weapons/greataxe.tres",
+	"res://resources/weapons/battleaxe.tres",
 	"res://resources/weapons/handaxe.tres",
 	"res://resources/weapons/dagger.tres",
 	"res://resources/weapons/greatsword.tres",
@@ -56,11 +57,18 @@ const BUFF_FILES: Array[String] = [
 const ABILITY_FILES: Array[String] = [
 	"res://resources/abilities/achiles_bane.tres",
 	"res://resources/abilities/drain_life.tres",
+	"res://resources/abilities/fire_fall.tres",
 	"res://resources/abilities/hip_shot.tres",
+	"res://resources/abilities/lightning_strike.tres",
 	"res://resources/abilities/peek_shot.tres",
+	"res://resources/abilities/quick_load.tres",
 	"res://resources/abilities/reckless_assault.tres",
+	"res://resources/abilities/reload.tres",
 	"res://resources/abilities/regenerate.tres",
 	"res://resources/abilities/riposte.tres",
+	"res://resources/abilities/reposition.tres",
+	"res://resources/abilities/sure_strike.tres",
+	"res://resources/abilities/watchers_eye.tres",
 ]
 ## class_int matches CharacterData.CharacterClass enum values.
 const CLASS_ENTRIES: Array = [
@@ -72,6 +80,7 @@ const CLASS_ENTRIES: Array = [
 	{"label": "Ranger",   "char_class": 1, "path": "res://resources/classes/ranger.tres"},
 	{"label": "Rogue",    "char_class": 3, "path": "res://resources/classes/rogue.tres"},
 ]
+const STAT_KEYS: Array[String] = ["strength", "dexterity", "constitution", "wisdom", "intelligence"]
 
 # ---------------------------------------------------------------------------
 # Loaded resources
@@ -103,6 +112,7 @@ var _btn_save_char:    Button
 
 var _ed_name:          LineEdit
 var _ed_class:         OptionButton
+var _ed_level:         SpinBox
 var _ed_stats:         Array = []   # Array[SpinBox], ordered [STR, DEX, CON, WIS, INT]
 var _ed_derived:       Label
 var _ed_main:          OptionButton
@@ -113,7 +123,12 @@ var _ed_skills:        Array = []   # Array[CheckBox]
 var _ed_skill_err:     Label
 var _delete_dialog:    ConfirmationDialog
 var _delete_target_idx: int = -1
+var _new_char_dialog:  ConfirmationDialog
+var _new_char_name:    LineEdit
+var _new_char_class:   OptionButton
+var _new_char_level:   SpinBox
 var _result_dialog:    AcceptDialog
+var _validation_dialog: AcceptDialog
 
 # ---------------------------------------------------------------------------
 # Editor state
@@ -181,9 +196,76 @@ func _build_ui() -> void:
 	_delete_dialog.confirmed.connect(_on_delete_char_confirmed)
 	layer.add_child(_delete_dialog)
 
+	_new_char_dialog = ConfirmationDialog.new()
+	_new_char_dialog.title = "Create Character"
+	_new_char_dialog.get_ok_button().text = "Create"
+	_new_char_dialog.confirmed.connect(_on_new_char_confirmed)
+	_new_char_dialog.about_to_popup.connect(_reset_new_char_dialog)
+	layer.add_child(_new_char_dialog)
+
+	var create_root := VBoxContainer.new()
+	create_root.add_theme_constant_override("separation", 8)
+	create_root.custom_minimum_size = Vector2(340.0, 0.0)
+	_new_char_dialog.add_child(create_root)
+
+	var create_name_row := HBoxContainer.new()
+	create_name_row.add_theme_constant_override("separation", 6)
+	create_root.add_child(create_name_row)
+
+	var create_name_lbl := Label.new()
+	create_name_lbl.text = "Name:"
+	create_name_lbl.custom_minimum_size = Vector2(88.0, 0.0)
+	create_name_row.add_child(create_name_lbl)
+
+	_new_char_name = LineEdit.new()
+	_new_char_name.placeholder_text = "New Brawler"
+	_new_char_name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	create_name_row.add_child(_new_char_name)
+
+	var create_class_row := HBoxContainer.new()
+	create_class_row.add_theme_constant_override("separation", 6)
+	create_root.add_child(create_class_row)
+
+	var create_class_lbl := Label.new()
+	create_class_lbl.text = "Class:"
+	create_class_lbl.custom_minimum_size = Vector2(88.0, 0.0)
+	create_class_row.add_child(create_class_lbl)
+
+	_new_char_class = OptionButton.new()
+	_new_char_class.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_new_char_class.add_item("(select class)")
+	_new_char_class.set_item_metadata(0, null)
+	for entry in CLASS_ENTRIES:
+		var idx: int = _new_char_class.get_item_count()
+		_new_char_class.add_item(entry["label"])
+		_new_char_class.set_item_metadata(idx, entry)
+	_new_char_class.item_selected.connect(_on_new_char_class_selected)
+	create_class_row.add_child(_new_char_class)
+
+	var create_level_row := HBoxContainer.new()
+	create_level_row.add_theme_constant_override("separation", 6)
+	create_root.add_child(create_level_row)
+
+	var create_level_lbl := Label.new()
+	create_level_lbl.text = "Level:"
+	create_level_lbl.custom_minimum_size = Vector2(88.0, 0.0)
+	create_level_row.add_child(create_level_lbl)
+
+	_new_char_level = SpinBox.new()
+	_new_char_level.min_value = 1
+	_new_char_level.max_value = 50
+	_new_char_level.step = 1
+	_new_char_level.value = 1
+	_new_char_level.custom_minimum_size = Vector2(110.0, 0.0)
+	create_level_row.add_child(_new_char_level)
+
 	_result_dialog = AcceptDialog.new()
 	_result_dialog.title = "Match Result"
 	layer.add_child(_result_dialog)
+
+	_validation_dialog = AcceptDialog.new()
+	_validation_dialog.title = "Cannot Save Character"
+	layer.add_child(_validation_dialog)
 
 	var root_panel := PanelContainer.new()
 	root_panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -424,6 +506,25 @@ func _load_editor(cd: Dictionary) -> void:
 	_ed_class.tooltip_text = "Class is fixed once the character exists."
 	class_hbox.add_child(_ed_class)
 
+	# -- Level --------------------------------------------------------------
+	var level_hbox := HBoxContainer.new()
+	level_hbox.add_theme_constant_override("separation", 6)
+	vbox.add_child(level_hbox)
+
+	var lbl_level := Label.new()
+	lbl_level.text = "Level:"
+	lbl_level.custom_minimum_size = Vector2(72.0, 0.0)
+	level_hbox.add_child(lbl_level)
+
+	_ed_level = SpinBox.new()
+	_ed_level.min_value = 1
+	_ed_level.max_value = 10
+	_ed_level.step = 1
+	_ed_level.value = int(cd.get("level", 1))
+	_ed_level.custom_minimum_size = Vector2(110.0, 0.0)
+	_ed_level.value_changed.connect(_on_level_changed)
+	level_hbox.add_child(_ed_level)
+
 	vbox.add_child(HSeparator.new())
 
 	# -- Stats --------------------------------------------------------------
@@ -454,8 +555,8 @@ func _load_editor(cd: Dictionary) -> void:
 		stat_grid.add_child(lbl)
 
 		var sp := SpinBox.new()
-		sp.min_value = 1
-		sp.max_value = 30
+		sp.min_value = 8
+		sp.max_value = 16
 		sp.value = int(cd.get(stat_def["key"], 10))
 		sp.custom_minimum_size = Vector2(72.0, 0.0)
 		sp.value_changed.connect(_on_stat_changed.bind(i))
@@ -486,6 +587,7 @@ func _load_editor(cd: Dictionary) -> void:
 	subtab.add_child(_build_skills_tab(cd))
 
 	_loading = false
+	_refresh_editor_validation(cd)
 	_refresh_derived_stats()
 
 # ---------------------------------------------------------------------------
@@ -1001,15 +1103,25 @@ func _on_class_changed(option_idx: int) -> void:
 	var cd: Dictionary = RosterManager.roster[_editor_idx].duplicate()
 	cd["character_class"] = entry["char_class"]
 	cd["class_data_path"] = entry["path"]
+	_refresh_editor_validation(cd)
+	RosterManager.update_char(_editor_idx, cd)
+	_refresh_derived_stats()
+
+func _on_level_changed(value: float) -> void:
+	if _loading or _editor_idx < 0:
+		return
+	var cd: Dictionary = RosterManager.roster[_editor_idx].duplicate()
+	cd["level"] = maxi(1, int(value))
+	_refresh_editor_validation(cd)
 	RosterManager.update_char(_editor_idx, cd)
 	_refresh_derived_stats()
 
 func _on_stat_changed(_value: float, stat_idx: int) -> void:
 	if _loading or _editor_idx < 0:
 		return
-	var stat_keys: Array[String] = ["strength", "dexterity", "constitution", "wisdom", "intelligence"]
 	var cd: Dictionary = RosterManager.roster[_editor_idx].duplicate()
-	cd[stat_keys[stat_idx]] = int(_ed_stats[stat_idx].value)
+	cd[STAT_KEYS[stat_idx]] = int(_ed_stats[stat_idx].value)
+	_refresh_editor_validation(cd)
 	RosterManager.update_char(_editor_idx, cd)
 	_refresh_derived_stats()
 
@@ -1031,6 +1143,7 @@ func _on_main_hand_changed(_idx: int) -> void:
 			cd["off_hand_path"] = null
 	var err: String = RosterManager.validate_equipment(cd.get("main_hand_path"), cd.get("off_hand_path"))
 	_ed_equip_err.text = err
+	_refresh_editor_validation(cd)
 	RosterManager.update_char(_editor_idx, cd)
 	_refresh_derived_stats()
 
@@ -1045,6 +1158,7 @@ func _on_off_hand_changed(_idx: int) -> void:
 		# Revert off-hand selection to none.
 		_ed_off.select(0)
 		cd["off_hand_path"] = null
+	_refresh_editor_validation(cd)
 	RosterManager.update_char(_editor_idx, cd)
 	_refresh_derived_stats()
 
@@ -1053,6 +1167,7 @@ func _on_armor_changed(_idx: int) -> void:
 		return
 	var cd: Dictionary = RosterManager.roster[_editor_idx].duplicate()
 	cd["armor_path"] = _get_option_path(_ed_armor)
+	_refresh_editor_validation(cd)
 	RosterManager.update_char(_editor_idx, cd)
 	_refresh_derived_stats()
 
@@ -1090,7 +1205,47 @@ func _on_save_char_pressed() -> void:
 	_save_current_character()
 
 func _on_new_char_pressed() -> void:
-	var new_idx: int = RosterManager.create_new_char()
+	_reset_new_char_dialog()
+	_new_char_dialog.popup_centered()
+
+func _on_new_char_class_selected(_idx: int) -> void:
+	if not _new_char_dialog or not _new_char_class:
+		return
+	var selected_meta: Variant = _new_char_class.get_item_metadata(_new_char_class.selected)
+	_new_char_dialog.get_ok_button().disabled = selected_meta == null
+
+func _reset_new_char_dialog() -> void:
+	if _new_char_name:
+		_new_char_name.text = ""
+	if _new_char_class:
+		_new_char_class.select(0)
+	if _new_char_level:
+		_new_char_level.value = 1
+	if _new_char_dialog:
+		_new_char_dialog.get_ok_button().disabled = true
+
+func _on_new_char_confirmed() -> void:
+	if not _new_char_class:
+		return
+	var selected_meta: Variant = _new_char_class.get_item_metadata(_new_char_class.selected)
+	if not (selected_meta is Dictionary):
+		if _validation_dialog:
+			_validation_dialog.dialog_text = "Please choose a class before creating the character."
+			_validation_dialog.popup_centered()
+		_new_char_dialog.call_deferred("popup_centered")
+		return
+	var class_entry: Dictionary = selected_meta as Dictionary
+	var new_name: String = ""
+	if _new_char_name:
+		new_name = _new_char_name.text.strip_edges()
+	var new_level: int = 1
+	if _new_char_level:
+		new_level = maxi(1, int(_new_char_level.value))
+	var new_idx: int = RosterManager.create_new_char(
+		new_name,
+		int(class_entry["char_class"]),
+		str(class_entry["path"]),
+		new_level)
 	_editor_idx = new_idx
 	_refresh_char_list()
 	if new_idx >= 0 and new_idx < RosterManager.roster.size():
@@ -1144,10 +1299,11 @@ func _save_current_character() -> void:
 		var class_entry: Dictionary = _ed_class.get_item_metadata(_ed_class.selected)
 		cd["character_class"] = int(class_entry["char_class"])
 		cd["class_data_path"] = class_entry["path"]
+	if _ed_level:
+		cd["level"] = maxi(1, int(_ed_level.value))
 
-	var stat_keys: Array[String] = ["strength", "dexterity", "constitution", "wisdom", "intelligence"]
-	for i in min(_ed_stats.size(), stat_keys.size()):
-		cd[stat_keys[i]] = int(_ed_stats[i].value)
+	for i in min(_ed_stats.size(), STAT_KEYS.size()):
+		cd[STAT_KEYS[i]] = int(_ed_stats[i].value)
 
 	if _ed_main:
 		cd["main_hand_path"] = _get_option_path(_ed_main)
@@ -1156,18 +1312,93 @@ func _save_current_character() -> void:
 	if _ed_armor:
 		cd["armor_path"] = _get_option_path(_ed_armor)
 
-	var equip_err: String = RosterManager.validate_equipment(cd.get("main_hand_path"), cd.get("off_hand_path"))
-	if _ed_equip_err:
-		_ed_equip_err.text = equip_err
-	if equip_err != "":
-		_play_status.text = "⚠ " + equip_err
+	var validation: Dictionary = _validate_editor_character(cd)
+	_apply_editor_validation(validation)
+	if bool(validation.get("has_errors", false)):
+		var lines: Array[String] = validation.get("errors", [])
+		if _validation_dialog:
+			_validation_dialog.dialog_text = "Please fix these issues before saving:\n\n- " + "\n- ".join(lines)
+			_validation_dialog.popup_centered()
+		_play_status.text = "⚠ Character has validation errors."
 		return
-	if _ed_skill_err:
-		_ed_skill_err.text = ""
 
 	RosterManager.update_char(_editor_idx, cd)
 	_refresh_derived_stats()
 	_play_status.text = "Character saved locally."
+
+func _validate_editor_character(cd: Dictionary) -> Dictionary:
+	var errors: Array[String] = []
+	var stat_values: Array[int] = []
+	var stat_out_of_range: Array[bool] = [false, false, false, false, false]
+	var stat_total: int = 0
+	for i in STAT_KEYS.size():
+		var value: int = int(cd.get(STAT_KEYS[i], 10))
+		stat_values.append(value)
+		stat_total += value
+		if value < 8 or value > 16:
+			stat_out_of_range[i] = true
+
+	if stat_total > 60:
+		errors.append("Total base stats cannot exceed 60 (current: %d)." % stat_total)
+
+	for i in stat_values.size():
+		var stat_value: int = stat_values[i]
+		if stat_value < 8:
+			errors.append("%s cannot be below 8." % STAT_KEYS[i].to_upper())
+		elif stat_value > 16:
+			errors.append("%s cannot be above 16." % STAT_KEYS[i].to_upper())
+
+	var equip_err: String = RosterManager.validate_equipment(cd.get("main_hand_path"), cd.get("off_hand_path"))
+	if equip_err != "":
+		errors.append(equip_err)
+
+	var char_data: CharacterData = RosterManager.dict_to_char(cd)
+	var spent_sp: int = char_data.get_skill_points_spent()
+	var available_sp: int = char_data.get_skill_points_available()
+	var skill_err: String = ""
+	if spent_sp > available_sp:
+		skill_err = "Spent skill points (%d) exceed available points (%d) for this level." % [spent_sp, available_sp]
+		errors.append(skill_err)
+
+	return {
+		"has_errors": not errors.is_empty(),
+		"errors": errors,
+		"stat_total_exceeded": stat_total > 60,
+		"stat_out_of_range": stat_out_of_range,
+		"equipment_error": equip_err,
+		"skill_error": skill_err,
+	}
+
+func _refresh_editor_validation(cd: Dictionary = {}) -> void:
+	if _loading:
+		return
+	var target: Dictionary = cd
+	if target.is_empty() and _editor_idx >= 0 and _editor_idx < RosterManager.roster.size():
+		target = RosterManager.roster[_editor_idx].duplicate(true)
+	if target.is_empty():
+		return
+	_apply_editor_validation(_validate_editor_character(target))
+
+func _apply_editor_validation(validation: Dictionary) -> void:
+	var stat_out_of_range: Array = validation.get("stat_out_of_range", [false, false, false, false, false])
+	var stat_total_exceeded: bool = bool(validation.get("stat_total_exceeded", false))
+	for i in min(_ed_stats.size(), stat_out_of_range.size()):
+		var invalid_stat: bool = stat_total_exceeded or bool(stat_out_of_range[i])
+		_ed_stats[i].modulate = Color(1.0, 0.55, 0.55) if invalid_stat else Color(1.0, 1.0, 1.0)
+
+	var equip_error: String = str(validation.get("equipment_error", ""))
+	if _ed_equip_err:
+		_ed_equip_err.text = equip_error
+	if _ed_main:
+		_ed_main.modulate = Color(1.0, 0.55, 0.55) if equip_error != "" else Color(1.0, 1.0, 1.0)
+	if _ed_off:
+		_ed_off.modulate = Color(1.0, 0.55, 0.55) if equip_error != "" else Color(1.0, 1.0, 1.0)
+
+	var skill_error: String = str(validation.get("skill_error", ""))
+	if _ed_skill_err:
+		_ed_skill_err.text = skill_error
+	if _ed_level:
+		_ed_level.modulate = Color(1.0, 0.55, 0.55) if skill_error != "" else Color(1.0, 1.0, 1.0)
 
 # ---------------------------------------------------------------------------
 # Roster change (external)

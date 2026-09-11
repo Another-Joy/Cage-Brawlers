@@ -1,0 +1,57 @@
+{
+  "strength": [
+    {"type":"skill","id":"str_power_1","name":"Power Build","description":"Increase damage on successful hits.","tier":1,"triggers":[{"major":"ON_DEAL_DAMAGE"}],"effects":[{"type":"ADD_DAMAGE","flat":1}]},
+    {"type":"skill","id":"str_pack_1","name":"Pack Mule","description":"Carry weight more easily.","tier":1,"effects":[{"type":"REDUCE_WEIGHT","flat":1}]},
+    {"type":"skill","id":"str_guard_1","name":"Braced Stance","description":"Reduce incoming damage in medium armor.","tier":2,"triggers":[{"major":"ON_TAKE_DAMAGE","minor":"SELF_WEARING_MEDIUM_ARMOR"}],"effects":[{"type":"REDUCE_INCOMING_DAMAGE","flat":1}]},
+    {"type":"skill","id":"str_heavy_1","name":"Heavy Conditioning","description":"Further reduce carried burden.","tier":2,"effects":[{"type":"REDUCE_WEIGHT","flat":2}]},
+    {"type":"skill","id":"str_power_2","name":"Crushing Blows","description":"Gain extra damage on successful hits.","tier":3,"triggers":[{"major":"ON_DEAL_DAMAGE"}],"effects":[{"type":"ADD_DAMAGE","flat":1}]},
+    {"type":"skill","id":"str_anchor_1","name":"Anchor","description":"Take less damage in heavy gear.","tier":3,"triggers":[{"major":"ON_TAKE_DAMAGE","minor":"SELF_WEARING_HEAVY_ARMOR"}],"effects":[{"type":"REDUCE_INCOMING_DAMAGE","flat":1}]},
+    {"type":"skill","id":"str_power_3","name":"Overpower","description":"Improve accuracy under pressure.","tier":4,"triggers":[{"major":"ON_ATTACK"}],"effects":[{"type":"ADD_ATTACK_ACCURACY","flat":5}]},
+    {"type":"skill","id":"str_surge","name":"Momentum Surge","description":"Stride farther under load.","tier":4,"effects":[{"type":"MODIFY_MOVEMENT","flat":1}]},
+    {"type":"skill","id":"str_mastery","name":"Titan Frame","description":"Capstone strength bonuses.","tier":5,"effects":[{"type":"REDUCE_WEIGHT","flat":3},{"type":"ADD_DAMAGE","flat":2}]}
+  ],
+  "dexterity": [
+    {"type":"skill","id":"dex_accuracy_1","name":"Quick Hands","description":"Improve attack accuracy.","tier":1,"triggers":[{"major":"ON_ATTACK"}],"effects":[{"type":"ADD_ATTACK_ACCURACY","flat":5}]},
+    {"type":"skill","id":"dex_evasion_1","name":"Footwork","description":"Improve evasion.","tier":1,"effects":[{"type":"ADD_EVASION","flat":5}]},
+    {"type":"skill","id":"dex_reliability_1","name":"Steady Grip","description":"Improve reliability.","tier":2,"triggers":[{"major":"ON_ATTACK"}],"effects":[{"type":"ADD_RELIABILITY","flat":10}]},
+    {"type":"skill","id":"dex_range_1","name":"Line Step","description":"Gain a little range on attacks.","tier":2,"triggers":[{"major":"ON_ATTACK"}],"effects":[{"type":"ADD_RANGE","flat":1}]},
+    {"type":"skill","id":"dex_evasion_2","name":"Slip Away","description":"Further improve evasion.","tier":3,"effects":[{"type":"ADD_EVASION","flat":5}]},
+    {"type":"skill","id":"dex_move_1","name":"Burst","description":"Gain movement.","tier":3,"effects":[{"type":"MODIFY_MOVEMENT","flat":1}]},
+    {"type":"skill","id":"dex_accuracy_2","name":"True Aim","description":"Further improve accuracy.","tier":4,"triggers":[{"major":"ON_ATTACK"}],"effects":[{"type":"ADD_ATTACK_ACCURACY","flat":5}]},
+    {"type":"skill","id":"dex_burden_1","name":"Light Load","description":"Reduce practical burden.","tier":4,"effects":[{"type":"REDUCE_WEIGHT","flat":1}]},
+    {"type":"skill","id":"dex_mastery","name":"Windstep","description":"Capstone dexterity bonuses.","tier":5,"effects":[{"type":"ADD_EVASION","flat":10},{"type":"MODIFY_MOVEMENT","flat":1}]}
+  ],
+  "constitution": [
+    {"type":"skill","id":"con_guard_1","name":"Hardy","description":"Reduce incoming damage.","tier":1,"triggers":[{"major":"ON_TAKE_DAMAGE"}],"effects":[{"type":"REDUCE_INCOMING_DAMAGE","flat":1}]},
+    {"type":"skill","id":"con_load_1","name":"Shoulder the Weight","description":"Carry more efficiently.","tier":1,"effects":[{"type":"REDUCE_WEIGHT","flat":1}]},
+    {"type":"skill","id":"con_guard_2","name":"Iron Flesh","description":"Further reduce incoming damage.","tier":2,"triggers":[{"major":"ON_TAKE_DAMAGE"}],"effects":[{"type":"REDUCE_INCOMING_DAMAGE","flat":1}]},
+    {"type":"skill","id":"con_move_1","name":"Marching Pace","description":"Encumbrance hurts less.","tier":2,"effects":[{"type":"MODIFY_MOVEMENT","flat":1}]},
+    {"type":"skill","id":"con_rel_1","name":"Calm Pulse","description":"Improve attack reliability.","tier":3,"triggers":[{"major":"ON_ATTACK"}],"effects":[{"type":"ADD_RELIABILITY","flat":10}]},
+    {"type":"skill","id":"con_armor_1","name":"Armor Habit","description":"Gain extra protection in heavy armor.","tier":3,"triggers":[{"major":"ON_TAKE_DAMAGE","minor":"SELF_WEARING_HEAVY_ARMOR"}],"effects":[{"type":"REDUCE_INCOMING_DAMAGE","flat":1}]},
+    {"type":"skill","id":"con_guard_3","name":"Stonewall","description":"Further improve toughness.","tier":4,"triggers":[{"major":"ON_TAKE_DAMAGE"}],"effects":[{"type":"REDUCE_INCOMING_DAMAGE","flat":1}]},
+    {"type":"skill","id":"con_load_2","name":"Bearer's Back","description":"Further reduce burden.","tier":4,"effects":[{"type":"REDUCE_WEIGHT","flat":2}]},
+    {"type":"skill","id":"con_mastery","name":"Unbroken","description":"Capstone constitution bonuses.","tier":5,"effects":[{"type":"REDUCE_INCOMING_DAMAGE","flat":2},{"type":"REDUCE_WEIGHT","flat":2}]}
+  ],
+  "wisdom": [
+    {"type":"skill","id":"wis_accuracy_1","name":"Guided Aim","description":"Improve attack accuracy.","tier":1,"triggers":[{"major":"ON_ATTACK"}],"effects":[{"type":"ADD_ATTACK_ACCURACY","flat":5}]},
+    {"type":"skill","id":"wis_reliability_1","name":"Measured Strike","description":"Improve reliability.","tier":1,"triggers":[{"major":"ON_ATTACK"}],"effects":[{"type":"ADD_RELIABILITY","flat":10}]},
+    {"type":"skill","id":"wis_range_1","name":"Far Sight","description":"Increase range.","tier":2,"triggers":[{"major":"ON_ATTACK"}],"effects":[{"type":"ADD_RANGE","flat":1}]},
+    {"type":"skill","id":"wis_evasion_1","name":"Awareness","description":"Improve evasion.","tier":2,"effects":[{"type":"ADD_EVASION","flat":5}]},
+    {"type":"skill","id":"wis_damage_1","name":"Read the Opening","description":"Gain damage on successful hits.","tier":3,"triggers":[{"major":"ON_DEAL_DAMAGE"}],"effects":[{"type":"ADD_DAMAGE","flat":1}]},
+    {"type":"skill","id":"wis_guard_1","name":"Patient Guard","description":"Reduce damage taken.","tier":3,"triggers":[{"major":"ON_TAKE_DAMAGE"}],"effects":[{"type":"REDUCE_INCOMING_DAMAGE","flat":1}]},
+    {"type":"skill","id":"wis_accuracy_2","name":"Perfect Read","description":"Further improve accuracy.","tier":4,"triggers":[{"major":"ON_ATTACK"}],"effects":[{"type":"ADD_ATTACK_ACCURACY","flat":5}]},
+    {"type":"skill","id":"wis_move_1","name":"Deliberate Advance","description":"Gain movement efficiency.","tier":4,"effects":[{"type":"MODIFY_MOVEMENT","flat":1}]},
+    {"type":"skill","id":"wis_mastery","name":"Inner Compass","description":"Capstone wisdom bonuses.","tier":5,"effects":[{"type":"ADD_RELIABILITY","flat":20},{"type":"ADD_RANGE","flat":1}]}
+  ],
+  "intelligence": [
+    {"type":"skill","id":"int_accuracy_1","name":"Ballistics","description":"Improve attack accuracy.","tier":1,"triggers":[{"major":"ON_ATTACK"}],"effects":[{"type":"ADD_ATTACK_ACCURACY","flat":5}]},
+    {"type":"skill","id":"int_range_1","name":"Trajectory","description":"Increase attack range.","tier":1,"triggers":[{"major":"ON_ATTACK"}],"effects":[{"type":"ADD_RANGE","flat":1}]},
+    {"type":"skill","id":"int_reliability_1","name":"Calibrated Motion","description":"Improve reliability.","tier":2,"triggers":[{"major":"ON_ATTACK"}],"effects":[{"type":"ADD_RELIABILITY","flat":10}]},
+    {"type":"skill","id":"int_weight_1","name":"Efficient Packing","description":"Reduce equipment burden.","tier":2,"effects":[{"type":"REDUCE_WEIGHT","flat":1}]},
+    {"type":"skill","id":"int_damage_1","name":"Exploit Weakness","description":"Gain damage when attacks land.","tier":3,"triggers":[{"major":"ON_DEAL_DAMAGE"}],"effects":[{"type":"ADD_DAMAGE","flat":1}]},
+    {"type":"skill","id":"int_guard_1","name":"Countermeasures","description":"Reduce incoming damage.","tier":3,"triggers":[{"major":"ON_TAKE_DAMAGE"}],"effects":[{"type":"REDUCE_INCOMING_DAMAGE","flat":1}]},
+    {"type":"skill","id":"int_accuracy_2","name":"Precision Tables","description":"Further improve accuracy.","tier":4,"triggers":[{"major":"ON_ATTACK"}],"effects":[{"type":"ADD_ATTACK_ACCURACY","flat":5}]},
+    {"type":"skill","id":"int_move_1","name":"Pathing","description":"Gain movement efficiency.","tier":4,"effects":[{"type":"MODIFY_MOVEMENT","flat":1}]},
+    {"type":"skill","id":"int_mastery","name":"Grand Calculation","description":"Capstone intelligence bonuses.","tier":5,"effects":[{"type":"ADD_RANGE","flat":1},{"type":"ADD_RELIABILITY","flat":20}]}
+  ]
+}

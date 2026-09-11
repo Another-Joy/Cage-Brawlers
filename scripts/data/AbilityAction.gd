@@ -26,6 +26,11 @@ enum ActionType {
 	CROUCH,       ## Crouch the character.
 	STAND_UP,     ## Stand the character up.
 	GRANT_BONUS,  ## Temporarily add flat_bonus to the stat named in string_param.
+	RELOAD,       ## Reload the equipped magazine weapon from reserve ammo.
+	AREA_DAMAGE,  ## Deal direct damage to tiles/units in an area.
+	SUMMON_WATCHER_EYE, ## Create a fragile observer unit on a target tile.
+	BREAK_SEGMENT, ## Break the next active health segment on the target.
+	MEND_BROKEN_SEGMENT, ## Mend the most recent broken segment on the target.
 }
 
 # ---------------------------------------------------------------------------
@@ -68,6 +73,16 @@ enum TargetType {
 ## Stacks with the parent AbilityData.reliability_modifier_percent for this action.
 @export var reliability_modifier_percent: float = 0.0
 
+## When true and action_type == ATTACK, the attack always hits.
+@export var force_hit: bool = false
+
+## When true and action_type == ATTACK, the attack cannot critically hit.
+@export var cannot_crit: bool = false
+
+## When true and action_type == ATTACK, damage bypasses armor HP and is dealt
+## directly to health segments.
+@export var ignore_armor: bool = false
+
 ## Extra string parameter:
 ##   APPLY_BUFF/APPLY_DEBUFF → buff/debuff identifier.
 ##   GRANT_BONUS             → name of the stat to temporarily boost
@@ -95,3 +110,11 @@ enum TargetType {
 ## 1 = secondary target (second selected, e.g. ally for Drain Life heal).
 ## This is only meaningful when AbilityData.target_count > 1.
 @export var target_index: int = 0
+
+## Radius in tiles for area actions centered on the chosen tile.
+## Used by AREA_DAMAGE.
+@export var area_radius: int = 0
+
+## Number of random tiles selected within the area. 0 means affect all valid targets.
+## Used by AREA_DAMAGE abilities like Lightning Strike.
+@export var random_tile_count: int = 0

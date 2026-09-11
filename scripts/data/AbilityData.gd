@@ -30,6 +30,13 @@ const PHASE_BEGINNING: int = 1
 const PHASE_MAIN: int = 2
 const PHASE_ENDING: int = 4
 
+enum TargetingMode {
+	NONE,
+	CHARACTER,
+	TILE,
+	TILE_AND_DIRECTION,
+}
+
 # ---------------------------------------------------------------------------
 # Exported Properties
 # ---------------------------------------------------------------------------
@@ -114,6 +121,9 @@ const PHASE_ENDING: int = 4
 ## Values above 1 allow multi-target selection in the UI.
 @export var target_count: int = 1
 
+## How the player supplies targets for this ability.
+@export var targeting_mode: TargetingMode = TargetingMode.CHARACTER
+
 # ---------------------------------------------------------------------------
 # Phase Helpers
 # ---------------------------------------------------------------------------
@@ -135,6 +145,15 @@ func is_main_ability() -> bool:
 ## Returns true if this ability can be used during the Ending phase.
 func is_ending_ability() -> bool:
 	return (phases & PHASE_ENDING) != 0
+
+func uses_character_targeting() -> bool:
+	return targeting_mode == TargetingMode.CHARACTER
+
+func uses_tile_targeting() -> bool:
+	return targeting_mode == TargetingMode.TILE or targeting_mode == TargetingMode.TILE_AND_DIRECTION
+
+func requires_direction_selection() -> bool:
+	return targeting_mode == TargetingMode.TILE_AND_DIRECTION
 
 # ---------------------------------------------------------------------------
 # Damage Modifier Helpers

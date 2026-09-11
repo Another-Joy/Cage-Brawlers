@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="AbilityData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/AbilityData.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/data/AbilityAction.gd" id="2"]
+
+[sub_resource type="Resource" id="action_move"]
+script = ExtResource("2")
+action_type = 1
+target_type = 0
+range_override = 2
+
+[resource]
+script = ExtResource("1")
+entry_id = "reposition"
+entry_name = "Reposition"
+description = "Move up to 2 tiles during the Ending phase, limited by your maximum movement."
+phases = 4
+target_count = 1
+targeting_mode = 2
+actions = [SubResource("action_move")]

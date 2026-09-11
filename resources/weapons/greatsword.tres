@@ -1,17 +1,13 @@
-[gd_resource type="Resource" script_class="WeaponData" format=3]
+[gd_resource type="Resource" script_class="WeaponData" load_steps=3 format=3 uid="uid://bhqc2kjx1fc3e"]
 
-[ext_resource type="Script" path="res://scripts/data/WeaponData.gd" id="1"]
+[ext_resource type="Script" uid="uid://bb3tgc10tnlt3" path="res://scripts/data/WeaponData.gd" id="1"]
+[ext_resource type="Script" uid="uid://c34bt228rslqw" path="res://scripts/data/SkillTreeEntry.gd" id="1_8lj6s"]
 
 [resource]
 script = ExtResource("1")
+damage_dice_count = 2
 item_id = "greatsword"
 item_name = "Greatsword"
 description = "A massive two-handed blade that deals heavy damage."
 weight = 6.0
-keywords = ["Two-Handed"]
-damage_type = 0
-weapon_type = 0
-damage_dice_count = 2
-damage_dice_sides = 6
-attack_range = 1
-ammo_type = 0
+keywords = Array[String](["Two-Handed"])
