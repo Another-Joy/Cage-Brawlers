@@ -334,11 +334,11 @@ func process_attack_action(
 		# Fire each weapon individually so hit/miss and riposte apply per-attack.
 		var results: Array = []
 		var weapons: Array = [attacker.main_hand_slot, attacker.off_hand_slot as WeaponData]
-			var is_surprise_attack: bool = _is_surprise_attack(attacker, target)
+		var is_surprise_attack: bool = _is_surprise_attack(attacker, target)
 		for w in weapons:
 			if w == null:
 				continue
-				results.append_array(_resolve_attack_with_passive_extras(attacker, target, w, skill_or_ability, null, is_surprise_attack))
+			results.append_array(_resolve_attack_with_passive_extras(attacker, target, w, skill_or_ability, null, is_surprise_attack))
 			# Stop if attacker was killed or knocked down by a riposte counter-attack.
 			if attacker.state_flag == CharacterData.StateFlag.DEAD \
 					or attacker.state_flag == CharacterData.StateFlag.KNOCKED_DOWN:
@@ -359,7 +359,7 @@ func _resolve_attack_with_passive_extras(
 		return out
 	var primary: AttackResolver.AttackResult = _attack_resolver.resolve_attack(
 			attacker, target, weapon, skill_or_ability, action, is_surprise_attack)
-	_apply_attack_result_with_riposte(primary, attacker, target, weapon)
+	_apply_attack_result_with_riposte(primary, attacker, target, weapon, action)
 	out.append(primary)
 	if not primary.valid:
 		return out
@@ -383,7 +383,7 @@ func _resolve_attack_with_passive_extras(
 			break
 		var extra: AttackResolver.AttackResult = _attack_resolver.resolve_attack(
 				attacker, target, weapon, skill_or_ability, action, is_surprise_attack)
-		_apply_attack_result_with_riposte(extra, attacker, target, weapon)
+		_apply_attack_result_with_riposte(extra, attacker, target, weapon, action)
 		out.append(extra)
 	return out
 
@@ -559,7 +559,8 @@ func _apply_attack_result_with_riposte(
 		result: AttackResolver.AttackResult,
 		attacker: CharacterData,
 		target: CharacterData,
-		weapon: WeaponData) -> void:
+		weapon: WeaponData,
+		action: AbilityAction = null) -> void:
 
 	if not result.valid:
 		return
@@ -598,9 +599,9 @@ func _apply_attack_result_with_riposte(
 			is_off_hand_attack)
 		var passive_reduction: int = SkillProcessor.get_damage_reduction(reduction_ctx)
 		result.damage_dealt = maxf(0.0, result.damage_dealt - float(passive_reduction))
-		var knocked_down: bool = action != null and action.ignore_armor \
-				? target.apply_direct_hp_damage(result.damage_dealt) \
-				: target.apply_damage(result.damage_dealt)
+		var knocked_down: bool = target.apply_direct_hp_damage(result.damage_dealt) \
+				if (action != null and action.ignore_armor) \
+				else target.apply_damage(result.damage_dealt)
 		if knocked_down:
 			_on_character_knocked_down(target)
 

@@ -1082,7 +1082,7 @@ func _draw_hp_bars(cd: Dictionary, tile_origin: Vector2) -> void:
 			"cur"     : float(segs[i]),
 			"max"     : float(seg_maxs[i]) if i < seg_maxs.size() else 0.0,
 			"disabled": (i < disabled.size() and disabled[i]),
-			"state"   : int(seg_state[i]) if i < seg_state.size() else ((i < disabled.size() and disabled[i]) ? 2 : 0),
+			"state"   : int(seg_state[i]) if i < seg_state.size() else (2 if (i < disabled.size() and disabled[i]) else 0),
 			"armor"   : false,
 		})
 	if armor_max > 0.0:
