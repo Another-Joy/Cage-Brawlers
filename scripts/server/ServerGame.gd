@@ -144,13 +144,15 @@ func _start_match_from_rosters() -> void:
 		for char_data in _team_map[player_id]:
 			_char_lookup[char_data.character_id] = char_data
 
-	# Place characters on spawn tiles.
+	# Place characters on spawn tiles, facing inward towards the opposing side.
 	var spawns_a: Array[Vector3i] = _build_spawns_for_side(true)
 	var spawns_b: Array[Vector3i] = _build_spawns_for_side(false)
 	for i in mini(team_a.size(), spawns_a.size()):
 		team_a[i].grid_position = spawns_a[i]
+		team_a[i].facing_direction = 2  # East, towards player_b's side.
 	for i in mini(team_b.size(), spawns_b.size()):
 		team_b[i].grid_position = spawns_b[i]
+		team_b[i].facing_direction = 6  # West, towards player_a's side.
 
 	# Build PlayerProfile objects.
 	var profile_a: PlayerProfile = PlayerProfile.new()

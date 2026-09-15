@@ -20,12 +20,32 @@ extends Node2D
 signal action_submitted(action: Dictionary)
 
 # ---------------------------------------------------------------------------
-# Visual constants
+# Isometric layout (editable — tweak in the Inspector)
 # ---------------------------------------------------------------------------
 
-const CHAR_PAD_BASE      : float = 6.0
-const HP_BAR_H_BASE      : float = 5.0
-const HP_BAR_MARGIN_BASE : float = 2.0
+## Tile height as a fraction of tile width (0.75 → 3/4 as tall as wide).
+@export var tile_height_ratio : float = 0.75
+
+## Character "bean" placeholder placement/size, as fractions of tile size,
+## relative to the tile's on-screen diamond center.
+@export_group("Character placement")
+@export var char_offset_ratio      : Vector2 = Vector2(0.0, -0.25)
+@export var char_bean_width_ratio  : float   = 0.46
+@export var char_bean_height_ratio : float   = 0.80
+
+## Health bar placement, as fractions of tile size, relative to the tile's
+## bottom corner (the lowest point of its diamond). Negative y moves the bar
+## up, away from the very corner.
+@export_group("Health bar placement")
+@export var healthbar_offset_ratio : Vector2 = Vector2(0.0, -0.18)
+@export var healthbar_width_ratio  : float   = 0.62
+@export var healthbar_height_px    : float   = 6.0
+
+@export_group("")
+
+# ---------------------------------------------------------------------------
+# Visual constants
+# ---------------------------------------------------------------------------
 
 ## Tile / map colours
 const C_TILE          := Color(0.18, 0.18, 0.21)
@@ -33,6 +53,7 @@ const C_TILE_BORDER   := Color(0.30, 0.30, 0.34)
 const C_HOVER         := Color(1.00, 1.00, 1.00, 0.10)
 const C_SEL_MOVE      := Color(0.20, 0.90, 0.20, 0.22)
 const C_SEL_ATTACK    := Color(0.95, 0.20, 0.20, 0.28)
+const C_SEL_FACING    := Color(0.95, 0.85, 0.20, 0.30)
 const C_FOG           := Color(0.00, 0.00, 0.00, 0.55)
 const C_RANGE_PREVIEW := Color(0.80, 0.60, 1.00, 0.20)
 
@@ -102,6 +123,7 @@ var _map_min_y   : int   = 0
 var _map_tiles_w : int   = 12
 var _map_tiles_h : int   = 8
 var _tile_size_px : float = 64.0
+var _map_origin  : Vector2 = Vector2.ZERO
 
 var _cam_offset : Vector2 = Vector2.ZERO
 var _pan_left   : bool = false
@@ -122,7 +144,6 @@ var _btn_log       : Button
 var _hud_hbox      : HBoxContainer
 var _tooltip_panel : PanelContainer
 var _tooltip_label : Label
-var _grid_facing   : GridContainer
 var _log_history   : Array[String] = []
 var _log_popup     : PanelContainer
 var _log_vbox      : VBoxContainer
@@ -219,29 +240,8 @@ func _build_ui() -> void:
 	_hud_hbox.add_theme_constant_override("separation", 8)
 	bot_panel.add_child(_hud_hbox)
 
-	# ── Facing grid (absolutely positioned inside ui_root) ───────
-	_grid_facing = GridContainer.new()
-	_grid_facing.columns = 3
-	_grid_facing.add_theme_constant_override("h_separation", 3)
-	_grid_facing.add_theme_constant_override("v_separation", 3)
-	_grid_facing.visible = false
-	var facing_entries: Array = [
-		["NW", 5], ["N", 4], ["NE", 3],
-		["W",  6], ["·", -1], ["E",  2],
-		["SW", 7], ["S", 0], ["SE",  1],
-	]
-	for entry in facing_entries:
-		if entry[1] == -1:
-			var pad := Control.new()
-			pad.custom_minimum_size = Vector2(42.0, 30.0)
-			_grid_facing.add_child(pad)
-		else:
-			var btn := Button.new()
-			btn.text = entry[0]
-			btn.custom_minimum_size = Vector2(42.0, 30.0)
-			btn.pressed.connect(_on_facing_pressed.bind(entry[1]))
-			_grid_facing.add_child(btn)
-	ui_root.add_child(_grid_facing)
+	# Facing selection is now done by clicking one of the 8 tiles around the
+	# active character directly on the map (see _input_mode == "select_facing").
 
 	# ── Tooltip panel (absolutely positioned inside ui_root) ─────
 	_tooltip_panel = PanelContainer.new()
@@ -315,8 +315,10 @@ func _rebuild_log_popup() -> void:
 
 
 # ---------------------------------------------------------------------------
-# Map layout / camera
+# Map layout / camera — all isometric tile↔screen conversions live here.
 # ---------------------------------------------------------------------------
+
+const MAP_MARGIN : float = 20.0
 
 func _recompute_map_layout() -> void:
 	var tiles: Array = _state.get("map", {}).get("tiles", [])
@@ -326,6 +328,7 @@ func _recompute_map_layout() -> void:
 		_map_tiles_w = 12
 		_map_tiles_h = 8
 		_tile_size_px = 64.0
+		_update_map_origin()
 		return
 	var min_x: int = int(tiles[0]["x"])
 	var max_x: int = min_x
@@ -343,37 +346,117 @@ func _recompute_map_layout() -> void:
 	_map_tiles_w = maxi(1, max_x - min_x + 1)
 	_map_tiles_h = maxi(1, max_y - min_y + 1)
 	var vp := get_viewport_rect().size
-	var usable_h := vp.y - TOP_BAR_H - HUD_BOTTOM_H
-	_tile_size_px = minf(
-		(vp.x * 0.9) / float(_map_tiles_w),
-		usable_h * 0.9 / float(_map_tiles_h)
-	)
+	var usable_w := vp.x * 0.9
+	var usable_h := (vp.y - TOP_BAR_H - HUD_BOTTOM_H) * 0.9
+	var span := float(_map_tiles_w + _map_tiles_h) * 0.5
+	_tile_size_px = maxf(8.0, minf(
+		usable_w / maxf(0.001, span),
+		usable_h / maxf(0.001, span * tile_height_ratio)
+	))
+	_update_map_origin()
 	_clamp_camera()
+
+
+## Recomputes the screen anchor so the isometric diamond map sits just below
+## the top bar with a small margin on all sides.
+func _update_map_origin() -> void:
+	var tw := _tile_w()
+	var th := _tile_h()
+	_map_origin = Vector2(
+		MAP_MARGIN + float(_map_tiles_h - 1) * tw * 0.5 + tw * 0.5,
+		TOP_BAR_H + MAP_MARGIN + th * 0.5
+	)
 
 
 func _clamp_camera() -> void:
 	var vp := get_viewport_rect().size
-	var map_w := _tile_size_px * float(_map_tiles_w)
-	var map_h := _tile_size_px * float(_map_tiles_h)
-	_cam_offset.x = clampf(_cam_offset.x, -20.0, maxf(0.0, map_w - vp.x + 40.0))
-	_cam_offset.y = clampf(_cam_offset.y, -20.0, maxf(0.0, map_h - (vp.y - TOP_BAR_H - HUD_BOTTOM_H) + 40.0))
+	var tw := _tile_w()
+	var th := _tile_h()
+	var span := maxf(0.0, float(_map_tiles_w + _map_tiles_h - 2))
+	var map_w := span * tw * 0.5 + tw
+	var map_h := span * th * 0.5 + th
+	_cam_offset.x = clampf(_cam_offset.x, -MAP_MARGIN, maxf(0.0, map_w - vp.x + MAP_MARGIN * 2.0))
+	_cam_offset.y = clampf(_cam_offset.y, -MAP_MARGIN, maxf(0.0, map_h - (vp.y - TOP_BAR_H - HUD_BOTTOM_H) + MAP_MARGIN * 2.0))
 
 
-func _tile_pos(tx: int, ty: int) -> Vector2:
-	return Vector2(
-		float(tx - _map_min_x) * _tile_size_px + 20.0 - _cam_offset.x,
-		float(ty - _map_min_y) * _tile_size_px + TOP_BAR_H + 10.0 - _cam_offset.y
-	)
+## Tile width in pixels (screen-space diamond width).
+func _tile_w() -> float:
+	return _tile_size_px
 
 
+## Tile height in pixels (screen-space diamond height); 3/4 of width by default.
+func _tile_h() -> float:
+	return _tile_size_px * tile_height_ratio
+
+
+## Returns the on-screen center of tile (tx, ty)'s isometric diamond.
+func _tile_center(tx: int, ty: int) -> Vector2:
+	var rel_x := float(tx - _map_min_x)
+	var rel_y := float(ty - _map_min_y)
+	var tw := _tile_w()
+	var th := _tile_h()
+	return _map_origin + Vector2((rel_x - rel_y) * tw * 0.5, (rel_x + rel_y) * th * 0.5) - _cam_offset
+
+
+## Returns the 4 diamond corner points (top, right, bottom, left) for tile (tx, ty).
+func _tile_diamond_points(tx: int, ty: int) -> PackedVector2Array:
+	var c := _tile_center(tx, ty)
+	var hw := _tile_w() * 0.5
+	var hh := _tile_h() * 0.5
+	return PackedVector2Array([
+		c + Vector2(0.0, -hh),
+		c + Vector2(hw, 0.0),
+		c + Vector2(0.0, hh),
+		c + Vector2(-hw, 0.0),
+	])
+
+
+## Returns the lowest (bottom) point of tile (tx, ty)'s diamond.
+func _tile_bottom_point(tx: int, ty: int) -> Vector2:
+	return _tile_center(tx, ty) + Vector2(0.0, _tile_h() * 0.5)
+
+
+## Converts a screen-space position into the tile it falls in, or (-1, -1) if
+## outside the map. This is the single entry point used for clicks and hover.
 func _screen_to_tile(screen_pos: Vector2) -> Vector2i:
-	var rel := screen_pos - Vector2(20.0 - _cam_offset.x, TOP_BAR_H + 10.0 - _cam_offset.y)
-	var tx: int = int(rel.x / _tile_size_px) + _map_min_x
-	var ty: int = int(rel.y / _tile_size_px) + _map_min_y
+	var tw := _tile_w()
+	var th := _tile_h()
+	if tw <= 0.0 or th <= 0.0:
+		return Vector2i(-1, -1)
+	var rel := screen_pos - _map_origin + _cam_offset
+	var a := rel.x / (tw * 0.5)
+	var b := rel.y / (th * 0.5)
+	var rel_x := roundi((a + b) * 0.5)
+	var rel_y := roundi((b - a) * 0.5)
+	var tx := rel_x + _map_min_x
+	var ty := rel_y + _map_min_y
 	for t in _state.get("map", {}).get("tiles", []):
 		if t["x"] == tx and t["y"] == ty:
 			return Vector2i(tx, ty)
 	return Vector2i(-1, -1)
+
+
+## Projects a grid-space direction vector (one of FACING_VECS) onto the
+## isometric screen, so drawn facing arrows follow the diamond axes.
+func _iso_dir(grid_vec: Vector2) -> Vector2:
+	var tw := _tile_w()
+	var th := _tile_h()
+	var d := Vector2((grid_vec.x - grid_vec.y) * tw * 0.5, (grid_vec.x + grid_vec.y) * th * 0.5)
+	return d.normalized()
+
+
+## Maps a tile offset (relative to a character) to one of the 8 FACING_VECS
+## direction indices, or -1 if the offset isn't adjacent (e.g. (0,0)).
+func _direction_index_from_offset(dx: int, dy: int) -> int:
+	var sx := signi(dx)
+	var sy := signi(dy)
+	if sx == 0 and sy == 0:
+		return -1
+	for i in FACING_VECS.size():
+		var v: Vector2 = FACING_VECS[i]
+		if int(v.x) == sx and int(v.y) == sy:
+			return i
+	return -1
 
 # ---------------------------------------------------------------------------
 # UI update
@@ -395,10 +478,7 @@ func _update_ui() -> void:
 	var is_my_turn: bool = (not active_char.is_empty()) and (active_char.get("player_id","") == local_player_id)
 	_rebuild_bottom_hud(phase if is_my_turn else "", active_id)
 	var show_facing: bool = (phase == "pending_rotation" and is_my_turn)
-	if show_facing:
-		var vp := get_viewport_rect().size
-		_grid_facing.position = Vector2(vp.x * 0.5 - 75.0, vp.y - HUD_BOTTOM_H - 120.0)
-	_grid_facing.visible = show_facing
+	_input_mode = "select_facing" if show_facing else ("none" if _input_mode == "select_facing" else _input_mode)
 
 
 func _rebuild_bottom_hud(phase: String, active_id: String) -> void:
@@ -578,7 +658,7 @@ func _populate_action_buttons(container: HBoxContainer, phase: String, cd: Dicti
 			_add_ability_buttons(container, 4, cd)
 		_:
 			_sq_btn(container, "End", _on_end_turn)
-	if _input_mode != "none":
+	if _input_mode != "none" and _input_mode != "select_facing":
 		_sq_btn(container, "X", _on_cancel)
 
 
@@ -658,10 +738,6 @@ func _on_cancel() -> void:
 	queue_redraw()
 
 
-func _on_facing_pressed(direction: int) -> void:
-	_submit({"type": "facing", "char_id": _active_id(), "direction": direction})
-
-
 func _on_ability_pressed(ability_id: String, needs_target: bool, target_count: int = 1) -> void:
 	_ability_hover_range = {}
 	if needs_target:
@@ -723,12 +799,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 
 	if event is InputEventMouseMotion:
-		var mm   := event as InputEventMouseMotion
-		var tile := _screen_to_tile(mm.position)
-		if tile != _hovered:
-			_hovered = tile
-			_hover_char_dict = _char_dict_at_tile(tile)
-			queue_redraw()
+		var mm := event as InputEventMouseMotion
+		_handle_map_hover(mm.position)
 		_check_portrait_hover(mm.position)
 		return
 
@@ -737,7 +809,21 @@ func _unhandled_input(event: InputEvent) -> void:
 	var mb := event as InputEventMouseButton
 	if not mb.pressed or mb.button_index != MOUSE_BUTTON_LEFT:
 		return
-	var tile := _screen_to_tile(mb.position)
+	_handle_map_click(mb.position)
+
+
+## Updates hover state (highlighted tile + hover popup) for a screen position.
+func _handle_map_hover(screen_pos: Vector2) -> void:
+	var tile := _screen_to_tile(screen_pos)
+	if tile != _hovered:
+		_hovered = tile
+		_hover_char_dict = _char_dict_at_tile(tile)
+		queue_redraw()
+
+
+## Resolves a left-click on the map to the current input mode's action.
+func _handle_map_click(screen_pos: Vector2) -> void:
+	var tile := _screen_to_tile(screen_pos)
 	if tile.x < 0 or tile.y < 0:
 		return
 	var aid := _active_id()
@@ -747,6 +833,16 @@ func _unhandled_input(event: InputEvent) -> void:
 			_submit({"type": "move", "char_id": aid, "dest": {"x": tile.x, "y": tile.y, "z": 0}})
 			_update_ui()
 			queue_redraw()
+		"select_facing":
+			var acd: Dictionary = _find_char_dict(aid)
+			if acd.is_empty():
+				return
+			var apos: Dictionary = acd["pos"]
+			var dir := _direction_index_from_offset(tile.x - int(apos["x"]), tile.y - int(apos["y"]))
+			if dir >= 0:
+				_submit({"type": "facing", "char_id": aid, "direction": dir})
+				_update_ui()
+				queue_redraw()
 		"select_attack":
 			var tid := _char_id_at_tile(tile)
 			if not tid.is_empty():
@@ -848,20 +944,27 @@ func _draw() -> void:
 				if abs(int(t["x"]) - origin.x) + abs(int(t["y"]) - origin.y) <= rng:
 					range_tiles["%d,%d" % [int(t["x"]), int(t["y"])]] = true
 
+	var facing_neighbor_keys: Dictionary = {}
+	if _input_mode == "select_facing":
+		var facing_acd: Dictionary = _find_char_dict(active_id)
+		if not facing_acd.is_empty():
+			var fapos: Dictionary = facing_acd["pos"]
+			for v in FACING_VECS:
+				facing_neighbor_keys["%d,%d" % [int(fapos["x"]) + int(v.x), int(fapos["y"]) + int(v.y)]] = true
+
 	for t in tiles:
-		var tpos := _tile_pos(t["x"], t["y"])
-		var rect  := Rect2(tpos, Vector2(_tile_size_px, _tile_size_px))
-		draw_rect(rect, C_TILE, true)
-		draw_rect(rect, C_TILE_BORDER, false, 1.0)
+		var pts := _tile_diamond_points(t["x"], t["y"])
+		draw_colored_polygon(pts, C_TILE)
+		_draw_polygon_outline(pts, C_TILE_BORDER, 1.0)
 		if _hovered.x == t["x"] and _hovered.y == t["y"]:
-			draw_rect(rect, C_HOVER, true)
+			draw_colored_polygon(pts, C_HOVER)
 		var tkey: String = "%d,%d" % [int(t["x"]), int(t["y"])]
 		if range_tiles.has(tkey):
-			draw_rect(rect, C_RANGE_PREVIEW, true)
+			draw_colored_polygon(pts, C_RANGE_PREVIEW)
 		if _input_mode == "select_move":
 			for mt in movable_tiles:
 				if mt["x"] == t["x"] and mt["y"] == t["y"]:
-					draw_rect(rect, C_SEL_MOVE, true)
+					draw_colored_polygon(pts, C_SEL_MOVE)
 					break
 		elif _input_mode == "select_attack":
 			for cdd in chars:
@@ -869,18 +972,21 @@ func _draw() -> void:
 					continue
 				var cp: Dictionary = cdd["pos"]
 				if cp["x"] == t["x"] and cp["y"] == t["y"]:
-					draw_rect(rect, C_SEL_ATTACK, true)
+					draw_colored_polygon(pts, C_SEL_ATTACK)
 		elif _input_mode == "select_ability_target":
 			for cdd in chars:
 				var cp: Dictionary = cdd["pos"]
 				if cp["x"] == t["x"] and cp["y"] == t["y"]:
 					var acd: Dictionary = _find_char_dict(active_id)
 					if cdd["player_id"] == acd.get("player_id",""):
-						draw_rect(rect, Color(0.20, 0.60, 1.00, 0.28), true)
+						draw_colored_polygon(pts, Color(0.20, 0.60, 1.00, 0.28))
 					else:
-						draw_rect(rect, C_SEL_ATTACK, true)
+						draw_colored_polygon(pts, C_SEL_ATTACK)
+		elif _input_mode == "select_facing":
+			if facing_neighbor_keys.has(tkey):
+				draw_colored_polygon(pts, C_SEL_FACING)
 		if not _visible_tiles.is_empty() and not _visible_tiles.has("%d,%d" % [t["x"], t["y"]]):
-			draw_rect(rect, C_FOG, true)
+			draw_colored_polygon(pts, C_FOG)
 
 	for bd in boundaries:
 		_draw_boundary(bd)
@@ -910,24 +1016,51 @@ func _draw_boundary(bd: Dictionary) -> void:
 		width = maxf(1.5, _tile_size_px * 0.05)
 	else:
 		return
-	var origin := _tile_pos(a["x"], a["y"])
+	var origin := _tile_diamond_points(a["x"], a["y"])
 	var p1 : Vector2
 	var p2 : Vector2
+	# origin indices: 0=top, 1=right, 2=bottom, 3=left.
 	if dx == 1:
-		p1 = origin + Vector2(_tile_size_px, 0.0)
-		p2 = origin + Vector2(_tile_size_px, _tile_size_px)
+		p1 = origin[1]
+		p2 = origin[2]
 	elif dx == -1:
-		p1 = origin
-		p2 = origin + Vector2(0.0, _tile_size_px)
+		p1 = origin[3]
+		p2 = origin[0]
 	elif dy == 1:
-		p1 = origin + Vector2(0.0, _tile_size_px)
-		p2 = origin + Vector2(_tile_size_px, _tile_size_px)
+		p1 = origin[2]
+		p2 = origin[3]
 	elif dy == -1:
-		p1 = origin
-		p2 = origin + Vector2(_tile_size_px, 0.0)
+		p1 = origin[0]
+		p2 = origin[1]
 	else:
 		return
 	draw_line(p1, p2, color, width)
+
+
+## Screen position where a character's "bean" placeholder is centered — tile
+## center plus the editable char_offset_ratio.
+func _char_screen_pos(tx: int, ty: int) -> Vector2:
+	var c := _tile_center(tx, ty)
+	return c + Vector2(char_offset_ratio.x * _tile_w(), char_offset_ratio.y * _tile_h())
+
+
+## Rect for the health bar under a character — anchored to the tile's bottom
+## corner plus the editable healthbar_offset_ratio.
+func _healthbar_rect(tx: int, ty: int) -> Rect2:
+	var bottom := _tile_bottom_point(tx, ty)
+	var anchor := bottom + Vector2(healthbar_offset_ratio.x * _tile_w(), healthbar_offset_ratio.y * _tile_h())
+	var w := healthbar_width_ratio * _tile_w()
+	var h := healthbar_height_px
+	return Rect2(anchor - Vector2(w * 0.5, h * 0.5), Vector2(w, h))
+
+
+## Generates a filled-ellipse point ring, used to draw the "bean" placeholder.
+func _make_ellipse_points(center: Vector2, rx: float, ry: float, segments: int = 16) -> PackedVector2Array:
+	var pts := PackedVector2Array()
+	for i in segments:
+		var a := TAU * float(i) / float(segments)
+		pts.append(center + Vector2(cos(a) * rx, sin(a) * ry))
+	return pts
 
 
 func _draw_character(cd: Dictionary, active_id: String) -> void:
@@ -935,53 +1068,56 @@ func _draw_character(cd: Dictionary, active_id: String) -> void:
 	var pos        : Dictionary = cd["pos"]
 	var char_id    : String     = cd["id"]
 	var player_id  : String     = cd["player_id"]
-	var tile_origin := _tile_pos(pos["x"], pos["y"])
-	var char_pad     : float = clampf(_tile_size_px * 0.10, 2.0, CHAR_PAD_BASE)
-	var hp_bar_h     : float = clampf(_tile_size_px * 0.08, 2.0, HP_BAR_H_BASE)
-	var hp_bar_margin: float = clampf(_tile_size_px * 0.03, 1.0, HP_BAR_MARGIN_BASE)
-	var sq_w : float = maxf(6.0, _tile_size_px - char_pad * 2.0)
-	var sq_h : float = maxf(6.0, _tile_size_px - char_pad * 2.0 - hp_bar_h - hp_bar_margin)
-	var sq_rect := Rect2(tile_origin + Vector2(char_pad, char_pad), Vector2(sq_w, sq_h))
+	var tx         : int        = int(pos["x"])
+	var ty         : int        = int(pos["y"])
+	var center     := _char_screen_pos(tx, ty)
+	var rx         : float = maxf(3.0, char_bean_width_ratio * _tile_w() * 0.5)
+	var ry         : float = maxf(3.0, char_bean_height_ratio * _tile_w() * 0.5)
+	var pts        := _make_ellipse_points(center, rx, ry)
 	var fill: Color
 	match state_int:
 		CharacterData.StateFlag.DEAD:         fill = C_DEAD
 		CharacterData.StateFlag.KNOCKED_DOWN: fill = C_KNOCKED
 		_: fill = C_TEAM_A if player_id == "player_a" else C_TEAM_B
-	draw_rect(sq_rect, fill, true)
+	draw_colored_polygon(pts, fill)
 	if char_id == active_id:
-		draw_rect(sq_rect, C_ACTIVE_RING, false, 2.5)
+		_draw_polygon_outline(pts, C_ACTIVE_RING, 2.5)
 	else:
-		draw_rect(sq_rect, fill.lightened(0.25), false, 1.0)
+		_draw_polygon_outline(pts, fill.lightened(0.25), 1.0)
 	if state_int == CharacterData.StateFlag.KNOCKED_DOWN:
-		draw_line(sq_rect.position, sq_rect.end, Color.WHITE, 2.0)
-		draw_line(sq_rect.position + Vector2(sq_w, 0.0), sq_rect.position + Vector2(0.0, sq_h), Color.WHITE, 2.0)
+		draw_line(center + Vector2(-rx, -ry), center + Vector2(rx, ry), Color.WHITE, 2.0)
+		draw_line(center + Vector2(rx, -ry), center + Vector2(-rx, ry), Color.WHITE, 2.0)
 	if cd.get("is_crouched", false):
-		draw_rect(sq_rect, C_CROUCHED, true)
+		draw_colored_polygon(pts, C_CROUCHED)
 	var font  := ThemeDB.fallback_font
-	var fsize : int = clamp(int(_tile_size_px * 0.22), 9, 14)
-	draw_string(font, sq_rect.get_center() + Vector2(-fsize * 0.3, fsize * 0.4),
+	var fsize : int = clamp(int(_tile_w() * 0.22), 9, 14)
+	draw_string(font, center + Vector2(-fsize * 0.3, fsize * 0.4),
 		cd["name"].substr(0,1).to_upper(), HORIZONTAL_ALIGNMENT_LEFT, -1, fsize, Color.WHITE)
 	if state_int != CharacterData.StateFlag.DEAD:
 		var facing_idx : int     = int(cd.get("facing",0)) % FACING_VECS.size()
-		var fv         : Vector2 = (FACING_VECS[facing_idx] as Vector2).normalized()
-		var center     : Vector2 = sq_rect.get_center()
-		var tip        : Vector2 = center + fv * sq_w * 0.30
+		var fv         : Vector2 = _iso_dir(FACING_VECS[facing_idx])
+		var tip        : Vector2 = center + fv * rx * 0.60
 		var perp       : Vector2 = Vector2(-fv.y, fv.x)
 		draw_colored_polygon(PackedVector2Array([
 			tip,
-			center + perp * sq_w * 0.12,
-			center - perp * sq_w * 0.12,
+			center + perp * rx * 0.24,
+			center - perp * rx * 0.24,
 		]), C_FACING)
-	_draw_hp_bars(cd, tile_origin)
+	_draw_hp_bar(cd, tx, ty)
 
 
-func _draw_hp_bars(cd: Dictionary, tile_origin: Vector2) -> void:
-	var char_pad     : float = clampf(_tile_size_px * 0.10, 2.0, CHAR_PAD_BASE)
-	var hp_bar_h     : float = clampf(_tile_size_px * 0.08, 2.0, HP_BAR_H_BASE)
-	var hp_bar_margin: float = clampf(_tile_size_px * 0.03, 1.0, HP_BAR_MARGIN_BASE)
-	var bar_x     : float = tile_origin.x + char_pad
-	var bar_y     : float = tile_origin.y + _tile_size_px - hp_bar_h - hp_bar_margin
-	var bar_total : float = maxf(6.0, _tile_size_px - char_pad * 2.0)
+## Draws the outline of a closed polygon (works for diamonds, beans, etc.).
+func _draw_polygon_outline(pts: PackedVector2Array, color: Color, width: float) -> void:
+	for i in pts.size():
+		draw_line(pts[i], pts[(i + 1) % pts.size()], color, width)
+
+
+func _draw_hp_bar(cd: Dictionary, tx: int, ty: int) -> void:
+	var bar_rect  := _healthbar_rect(tx, ty)
+	var bar_x     : float = bar_rect.position.x
+	var bar_y     : float = bar_rect.position.y
+	var hp_bar_h  : float = bar_rect.size.y
+	var bar_total : float = bar_rect.size.x
 	if cd.has("hp_state"):
 		draw_string(ThemeDB.fallback_font, Vector2(bar_x, bar_y), cd.get("hp_state","?"),
 			HORIZONTAL_ALIGNMENT_LEFT, bar_total, 8, Color(1.0, 0.8, 0.8))
@@ -1061,14 +1197,16 @@ func _draw_hover_popup(cd: Dictionary) -> void:
 		lines.append("Off: %s" % equip["off_hand"].get("name","?"))
 	if equip.has("armor"):
 		lines.append("Armor: %s (AV %d)" % [equip["armor"].get("name","?"), equip["armor"].get("av",0)])
-	var tile_origin : Vector2 = _tile_pos(_hovered.x, _hovered.y)
+	var tile_pts    : PackedVector2Array = _tile_diamond_points(_hovered.x, _hovered.y)
+	var tile_right  : Vector2 = tile_pts[1]
+	var tile_top    : Vector2 = tile_pts[0]
 	var popup_w     : float   = 160.0
 	var popup_h     : float   = padding * 2.0 + line_h * float(lines.size())
 	var vp_size     : Vector2 = get_viewport_rect().size
-	var px : float = tile_origin.x + _tile_size_px + 4.0
-	var py : float = clampf(tile_origin.y, TOP_BAR_H, vp_size.y - HUD_BOTTOM_H - popup_h)
+	var px : float = tile_right.x + 4.0
+	var py : float = clampf(tile_top.y, TOP_BAR_H, vp_size.y - HUD_BOTTOM_H - popup_h)
 	if px + popup_w > vp_size.x:
-		px = tile_origin.x - popup_w - 4.0
+		px = tile_pts[3].x - popup_w - 4.0
 	draw_rect(Rect2(px, py, popup_w, popup_h), Color(0.0, 0.0, 0.0, 0.80), true)
 	draw_rect(Rect2(px, py, popup_w, popup_h), Color(0.6, 0.6, 0.6, 0.60), false, 1.0)
 	var team_color: Color = C_TEAM_A if cd.get("player_id","") == "player_a" else C_TEAM_B
